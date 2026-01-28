@@ -6,6 +6,7 @@ import { GameView } from "../../../core/game/GameView";
 import { crazyGamesSDK } from "../../CrazyGamesSDK";
 import { PauseGameIntentEvent, SendWinnerEvent } from "../../Transport";
 import { translateText } from "../../Utils";
+import { ShowCountryManagementModalEvent } from "./CountryManagementModal";
 import { Layer } from "./Layer";
 import { ShowReplayPanelEvent } from "./ReplayPanel";
 import { ShowSettingsModalEvent } from "./SettingsModal";
@@ -137,6 +138,10 @@ export class GameRightSidebar extends LitElement implements Layer {
     );
   }
 
+  private onCountryManagementButtonClick() {
+    this.eventBus.emit(new ShowCountryManagementModalEvent(true));
+  }
+
   render() {
     if (this.game === undefined) return html``;
 
@@ -158,6 +163,14 @@ export class GameRightSidebar extends LitElement implements Layer {
 
         <!-- Buttons -->
         ${this.maybeRenderReplayButtons()}
+
+        <div
+          class="cursor-pointer"
+          @click=${this.onCountryManagementButtonClick}
+          title="Country Management"
+        >
+          <span class="text-lg">🏛️</span>
+        </div>
 
         <div class="cursor-pointer" @click=${this.onSettingsButtonClick}>
           <img src=${settingsIcon} alt="settings" width="20" height="20" />

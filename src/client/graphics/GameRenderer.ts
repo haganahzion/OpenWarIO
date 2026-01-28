@@ -12,6 +12,7 @@ import { BuildMenu } from "./layers/BuildMenu";
 import { ChatDisplay } from "./layers/ChatDisplay";
 import { ChatModal } from "./layers/ChatModal";
 import { ControlPanel } from "./layers/ControlPanel";
+import { CountryManagementModal } from "./layers/CountryManagementModal";
 import { DynamicUILayer } from "./layers/DynamicUILayer";
 import { EmojiTable } from "./layers/EmojiTable";
 import { EventsDisplay } from "./layers/EventsDisplay";
@@ -171,6 +172,15 @@ export function createRenderer(
   settingsModal.userSettings = userSettings;
   settingsModal.eventBus = eventBus;
 
+  const countryManagementModal = document.querySelector(
+    "country-management-modal",
+  ) as CountryManagementModal;
+  if (!(countryManagementModal instanceof CountryManagementModal)) {
+    console.error("country management modal not found");
+  }
+  countryManagementModal.game = game;
+  countryManagementModal.eventBus = eventBus;
+
   const unitDisplay = document.querySelector("unit-display") as UnitDisplay;
   if (!(unitDisplay instanceof UnitDisplay)) {
     console.error("unit display not found");
@@ -283,6 +293,7 @@ export function createRenderer(
     winModal,
     replayPanel,
     settingsModal,
+    countryManagementModal,
     teamStats,
     playerPanel,
     headsUpMessage,
