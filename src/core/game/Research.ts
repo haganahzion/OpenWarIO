@@ -237,3 +237,4 @@ export function calculateCombinedBonuses(
 
   return combined;
 }
+// Trigger rebuild Thu Jan 29 22:03:10 UTC 2026
