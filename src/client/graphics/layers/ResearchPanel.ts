@@ -180,23 +180,23 @@ export class ResearchPanel extends LitElement implements Layer {
   }
 
   render() {
-    if (!this.myPlayer?.isAlive() || this.game.inSpawnPhase()) {
-      return null;
-    }
-
-    const allResearches = getAllResearchTypes();
+    // Always render the button, but disable functionality if not ready
+    const isReady = this.game && this.myPlayer?.isAlive();
+    const allResearches = isReady ? getAllResearchTypes() : [];
     const currentResearch = this.myPlayer?.getCurrentResearch();
 
     return html`
-      <div class="fixed bottom-52 left-4 z-[1000]">
+      <div class="fixed bottom-52 left-4 z-[1000] pointer-events-auto">
         <!-- Toggle Button -->
         <button
           class=${`flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg transition-all ${
-            this.isOpen
-              ? "bg-purple-700 text-white"
-              : "bg-slate-800/80 text-white hover:bg-slate-700/80"
+            !isReady
+              ? "bg-gray-700/50 text-gray-400 cursor-not-allowed"
+              : this.isOpen
+                ? "bg-purple-700 text-white"
+                : "bg-slate-800/80 text-white hover:bg-slate-700/80"
           }`}
-          @click=${this.togglePanel}
+          @click=${isReady ? this.togglePanel : null}
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -208,7 +208,7 @@ export class ResearchPanel extends LitElement implements Layer {
         </button>
 
         <!-- Research Panel -->
-        ${this.isOpen ? html`
+        ${this.isOpen && isReady ? html`
           <div class="absolute top-12 left-0 w-80 max-h-96 overflow-y-auto bg-slate-900/95 backdrop-blur-sm rounded-lg shadow-xl border border-slate-700 p-3">
             <div class="text-lg font-bold text-white mb-3 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
