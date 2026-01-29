@@ -47,7 +47,7 @@ export class ResearchPanel extends LitElement implements Layer {
   }
 
   private startResearch(type: ResearchType): void {
-    if (this.myPlayer?.canStartResearch(type)) {
+    if (this.myPlayer && this.eventBus && this.myPlayer.canStartResearch(type)) {
       this.eventBus.emit(new SendResearchIntentEvent(type));
     }
   }
@@ -149,23 +149,25 @@ export class ResearchPanel extends LitElement implements Layer {
     if (!this.myPlayer) return null;
 
     const bonuses = this.myPlayer.getResearchBonuses();
-    const hasBonuses = bonuses.attackBonus !== 1.0 ||
-                       bonuses.defenseBonus !== 1.0 ||
-                       bonuses.troopProductionBonus !== 1.0;
+    if (!bonuses) return null;
+
+    const hasBonuses = (bonuses.attackBonus ?? 1.0) !== 1.0 ||
+                       (bonuses.defenseBonus ?? 1.0) !== 1.0 ||
+                       (bonuses.troopProductionBonus ?? 1.0) !== 1.0;
 
     if (!hasBonuses) return null;
 
     return html`
       <div class="mt-3 p-2 bg-green-900/30 rounded border border-green-700">
         <div class="text-sm font-bold text-green-400 mb-1">Active Bonuses</div>
-        ${bonuses.attackBonus !== 1.0 ? html`
-          <div class="text-xs text-green-300">Attack: +${Math.round((bonuses.attackBonus! - 1) * 100)}%</div>
+        ${(bonuses.attackBonus ?? 1.0) !== 1.0 ? html`
+          <div class="text-xs text-green-300">Attack: +${Math.round(((bonuses.attackBonus ?? 1.0) - 1) * 100)}%</div>
         ` : null}
-        ${bonuses.defenseBonus !== 1.0 ? html`
-          <div class="text-xs text-green-300">Defense: +${Math.round((bonuses.defenseBonus! - 1) * 100)}%</div>
+        ${(bonuses.defenseBonus ?? 1.0) !== 1.0 ? html`
+          <div class="text-xs text-green-300">Defense: +${Math.round(((bonuses.defenseBonus ?? 1.0) - 1) * 100)}%</div>
         ` : null}
-        ${bonuses.troopProductionBonus !== 1.0 ? html`
-          <div class="text-xs text-green-300">Troops: +${Math.round((bonuses.troopProductionBonus! - 1) * 100)}%</div>
+        ${(bonuses.troopProductionBonus ?? 1.0) !== 1.0 ? html`
+          <div class="text-xs text-green-300">Troops: +${Math.round(((bonuses.troopProductionBonus ?? 1.0) - 1) * 100)}%</div>
         ` : null}
       </div>
     `;

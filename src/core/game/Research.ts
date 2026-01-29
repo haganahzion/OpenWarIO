@@ -110,8 +110,17 @@ export function calculateCombinedBonuses(
     buildSpeedBonus: 1.0,
   };
 
+  // Defensive check for null/undefined input
+  if (!completedResearches || !Array.isArray(completedResearches)) {
+    return combined;
+  }
+
   for (const researchType of completedResearches) {
     const def = RESEARCH_DEFINITIONS[researchType];
+    // Skip if research type is invalid
+    if (!def) {
+      continue;
+    }
     if (def.bonuses.attackBonus) {
       combined.attackBonus! *= def.bonuses.attackBonus;
     }
