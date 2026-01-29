@@ -117,6 +117,13 @@ export const buildTable: BuildItemDisplay[][] = [
       key: "unit_type.factory",
       countable: true,
     },
+    {
+      unitType: UnitType.Airport,
+      icon: factoryIcon, // TODO: replace with airport icon
+      description: "build_menu.desc.airport",
+      key: "unit_type.airport",
+      countable: true,
+    },
   ],
 ];
 

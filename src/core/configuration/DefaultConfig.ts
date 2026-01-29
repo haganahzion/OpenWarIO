@@ -465,6 +465,20 @@ export class DefaultConfig implements Config {
           territoryBound: false,
           experimental: true,
         };
+      case UnitType.Airport:
+        return {
+          cost: this.costWrapper(
+            (numUnits: number) => Math.pow(2, numUnits) * 250_000,
+            UnitType.Airport,
+          ),
+          territoryBound: true,
+          constructionDuration: this.instantBuild() ? 0 : 5 * 10,
+        };
+      case UnitType.TransportPlane:
+        return {
+          cost: () => 0n,
+          territoryBound: false,
+        };
       default:
         assertNever(type);
     }
