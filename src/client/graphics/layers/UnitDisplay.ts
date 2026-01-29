@@ -31,6 +31,7 @@ export class UnitDisplay extends LitElement implements Layer {
   private _cities = 0;
   private _warships = 0;
   private _factories = 0;
+  private _airports = 0;
   private _missileSilo = 0;
   private _port = 0;
   private _defensePost = 0;
@@ -57,6 +58,7 @@ export class UnitDisplay extends LitElement implements Layer {
     this.allDisabled =
       config.isUnitDisabled(UnitType.City) &&
       config.isUnitDisabled(UnitType.Factory) &&
+      config.isUnitDisabled(UnitType.Airport) &&
       config.isUnitDisabled(UnitType.Port) &&
       config.isUnitDisabled(UnitType.DefensePost) &&
       config.isUnitDisabled(UnitType.MissileSilo) &&
@@ -110,6 +112,7 @@ export class UnitDisplay extends LitElement implements Layer {
     this._defensePost = player.totalUnitLevels(UnitType.DefensePost);
     this._samLauncher = player.totalUnitLevels(UnitType.SAMLauncher);
     this._factories = player.totalUnitLevels(UnitType.Factory);
+    this._airports = player.totalUnitLevels(UnitType.Airport);
     this._warships = player.totalUnitLevels(UnitType.Warship);
     this.requestUpdate();
   }
@@ -147,6 +150,13 @@ export class UnitDisplay extends LitElement implements Layer {
               UnitType.Factory,
               "factory",
               this.keybinds["buildFactory"]?.key ?? "2",
+            )}
+            ${this.renderUnitItem(
+              factoryIcon,
+              this._airports,
+              UnitType.Airport,
+              "airport",
+              this.keybinds["buildAirport"]?.key ?? "R",
             )}
             ${this.renderUnitItem(
               portIcon,
