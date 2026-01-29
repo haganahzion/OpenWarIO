@@ -175,6 +175,10 @@ export interface PlayerUpdate {
   betrayals: number;
   lastDeleteUnitTick: Tick;
   isLobbyCreator: boolean;
+  // Research state
+  completedResearches: string[];
+  currentResearch: string | null;
+  researchProgress: number;
 }
 
 export interface AllianceView {

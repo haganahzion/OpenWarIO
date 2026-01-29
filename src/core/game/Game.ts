@@ -4,6 +4,7 @@ import { PathFinder } from "../pathfinding/types";
 import { AllPlayersStats, ClientID } from "../Schemas";
 import { getClanTag } from "../Util";
 import { GameMap, TileRef } from "./GameMap";
+import { ResearchBonuses, ResearchType } from "./Research";
 import {
   GameUpdate,
   GameUpdateType,
@@ -689,6 +690,15 @@ export interface Player {
   stopEmbargo(other: Player): void;
   endTemporaryEmbargo(other: Player): void;
   canTrade(other: Player): boolean;
+
+  // Research
+  hasResearch(type: ResearchType): boolean;
+  getCompletedResearches(): ResearchType[];
+  getCurrentResearch(): ResearchType | null;
+  getResearchProgress(): number; // 0-1 progress of current research
+  canStartResearch(type: ResearchType): boolean;
+  startResearch(type: ResearchType): boolean;
+  getResearchBonuses(): ResearchBonuses;
 
   // Attacking.
   canAttack(tile: TileRef): boolean;

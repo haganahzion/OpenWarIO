@@ -31,6 +31,7 @@ import { PlayerInfoOverlay } from "./layers/PlayerInfoOverlay";
 import { PlayerPanel } from "./layers/PlayerPanel";
 import { RailroadLayer } from "./layers/RailroadLayer";
 import { ReplayPanel } from "./layers/ReplayPanel";
+import { ResearchPanel } from "./layers/ResearchPanel";
 import { SAMRadiusLayer } from "./layers/SAMRadiusLayer";
 import { SettingsModal } from "./layers/SettingsModal";
 import { SpawnTimer } from "./layers/SpawnTimer";
@@ -229,6 +230,15 @@ export function createRenderer(
   }
   alertFrame.game = game;
 
+  const researchPanel = document.querySelector(
+    "research-panel",
+  ) as ResearchPanel;
+  if (!(researchPanel instanceof ResearchPanel)) {
+    console.error("research panel not found");
+  }
+  researchPanel.game = game;
+  researchPanel.eventBus = eventBus;
+
   const spawnTimer = document.querySelector("spawn-timer") as SpawnTimer;
   if (!(spawnTimer instanceof SpawnTimer)) {
     console.error("spawn timer not found");
@@ -289,6 +299,7 @@ export function createRenderer(
     multiTabModal,
     new AdTimer(game),
     alertFrame,
+    researchPanel,
     performanceOverlay,
   ];
 

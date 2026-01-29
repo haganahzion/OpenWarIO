@@ -643,14 +643,18 @@ export class DefaultConfig implements Config {
         largeAttackerSpeedBonus = (100_000 / attacker.numTilesOwned()) ** 0.6;
       }
 
+      // Apply research bonuses if attacker has completed research
+      const attackerResearchBonus = attacker.getResearchBonuses().attackBonus ?? 1;
+
       return {
         attackerTroopLoss:
-          within(defender.troops() / attackTroops, 0.6, 2) *
-          mag *
-          0.8 *
-          largeDefenderAttackDebuff *
-          largeAttackBonus *
-          (defender.isTraitor() ? this.traitorDefenseDebuff() : 1),
+          (within(defender.troops() / attackTroops, 0.6, 2) *
+            mag *
+            0.8 *
+            largeDefenderAttackDebuff *
+            largeAttackBonus *
+            (defender.isTraitor() ? this.traitorDefenseDebuff() : 1)) /
+          attackerResearchBonus, // Research bonus reduces troop loss
         defenderTroopLoss: defender.troops() / defender.numTilesOwned(),
         tilesPerTickUsed:
           within(defender.troops() / (5 * attackTroops), 0.2, 1.5) *

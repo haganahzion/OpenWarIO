@@ -20,6 +20,7 @@ import {
   Trios,
   UnitType,
 } from "./game/Game";
+import { ResearchType } from "./game/Research";
 import { PlayerStatsSchema } from "./StatsSchemas";
 import { flattenedEmojiTable } from "./Util";
 
@@ -50,7 +51,8 @@ export type Intent =
   | DeleteUnitIntent
   | KickPlayerIntent
   | TogglePauseIntent
-  | UpdateGameConfigIntent;
+  | UpdateGameConfigIntent
+  | ResearchIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -86,6 +88,7 @@ export type TogglePauseIntent = z.infer<typeof TogglePauseIntentSchema>;
 export type UpdateGameConfigIntent = z.infer<
   typeof UpdateGameConfigIntentSchema
 >;
+export type ResearchIntent = z.infer<typeof ResearchIntentSchema>;
 
 export type Turn = z.infer<typeof TurnSchema>;
 export type GameConfig = z.infer<typeof GameConfigSchema>;
@@ -400,6 +403,11 @@ export const UpdateGameConfigIntentSchema = BaseIntentSchema.extend({
   config: GameConfigSchema.partial(),
 });
 
+export const ResearchIntentSchema = BaseIntentSchema.extend({
+  type: z.literal("research"),
+  researchType: z.nativeEnum(ResearchType),
+});
+
 const IntentSchema = z.discriminatedUnion("type", [
   AttackIntentSchema,
   CancelAttackIntentSchema,
@@ -425,6 +433,7 @@ const IntentSchema = z.discriminatedUnion("type", [
   KickPlayerIntentSchema,
   TogglePauseIntentSchema,
   UpdateGameConfigIntentSchema,
+  ResearchIntentSchema,
 ]);
 
 //

@@ -11,6 +11,13 @@ import {
 } from "../Util";
 import { AttackImpl } from "./AttackImpl";
 import {
+  calculateCombinedBonuses,
+  getResearchDefinition,
+  ResearchBonuses,
+  ResearchState,
+  ResearchType,
+} from "./Research";
+import {
   Alliance,
   AllianceRequest,
   AllPlayers,
@@ -96,6 +103,11 @@ export class PlayerImpl implements Player {
   private lastDeleteUnitTick: Tick = -1;
   private lastEmbargoAllTick: Tick = -1;
 
+  // Research state
+  private _researches: Map<ResearchType, ResearchState> = new Map();
+  private _currentResearch: ResearchType | null = null;
+  private _researchStartTick: Tick | null = null;
+
   public _incomingAttacks: Attack[] = [];
   public _outgoingAttacks: Attack[] = [];
   public _outgoingLandAttacks: Attack[] = [];
@@ -180,6 +192,10 @@ export class PlayerImpl implements Player {
       betrayals: this._betrayalCount,
       lastDeleteUnitTick: this.lastDeleteUnitTick,
       isLobbyCreator: this.isLobbyCreator(),
+      // Research state
+      completedResearches: this.getCompletedResearches(),
+      currentResearch: this.getCurrentResearch(),
+      researchProgress: this.getResearchProgress(),
     };
   }
 
@@ -1260,5 +1276,92 @@ export class PlayerImpl implements Player {
 
   bestTransportShipSpawn(targetTile: TileRef): TileRef | false {
     return bestShoreDeploymentSource(this.mg, this, targetTile) ?? false;
+  }
+
+  // Research methods
+  hasResearch(type: ResearchType): boolean {
+    const state = this._researches.get(type);
+    return state?.completed ?? false;
+  }
+
+  getCompletedResearches(): ResearchType[] {
+    const completed: ResearchType[] = [];
+    for (const [type, state] of this._researches) {
+      if (state.completed) {
+        completed.push(type);
+      }
+    }
+    return completed;
+  }
+
+  getCurrentResearch(): ResearchType | null {
+    return this._currentResearch;
+  }
+
+  getResearchProgress(): number {
+    if (this._currentResearch === null || this._researchStartTick === null) {
+      return 0;
+    }
+    const def = getResearchDefinition(this._currentResearch);
+    const elapsed = this.mg.ticks() - this._researchStartTick;
+    return Math.min(1, elapsed / def.durationTicks);
+  }
+
+  canStartResearch(type: ResearchType): boolean {
+    // Already researched
+    if (this.hasResearch(type)) {
+      return false;
+    }
+    // Currently researching something
+    if (this._currentResearch !== null) {
+      return false;
+    }
+    // Check cost
+    const def = getResearchDefinition(type);
+    if (this._gold < def.cost) {
+      return false;
+    }
+    // Check prerequisites
+    for (const prereq of def.prerequisites) {
+      if (!this.hasResearch(prereq)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  startResearch(type: ResearchType): boolean {
+    if (!this.canStartResearch(type)) {
+      return false;
+    }
+    const def = getResearchDefinition(type);
+    this.removeGold(def.cost);
+    this._currentResearch = type;
+    this._researchStartTick = this.mg.ticks();
+    this._researches.set(type, {
+      type,
+      completed: false,
+      startedAt: this.mg.ticks(),
+      completedAt: null,
+    });
+    return true;
+  }
+
+  // Called by ResearchExecution to complete research
+  completeResearch(): void {
+    if (this._currentResearch === null) {
+      return;
+    }
+    const state = this._researches.get(this._currentResearch);
+    if (state) {
+      state.completed = true;
+      state.completedAt = this.mg.ticks();
+    }
+    this._currentResearch = null;
+    this._researchStartTick = null;
+  }
+
+  getResearchBonuses(): ResearchBonuses {
+    return calculateCombinedBonuses(this.getCompletedResearches());
   }
 }

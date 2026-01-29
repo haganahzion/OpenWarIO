@@ -34,6 +34,12 @@ import {
   PlayerUpdate,
   UnitUpdate,
 } from "./GameUpdates";
+import {
+  calculateCombinedBonuses,
+  getResearchDefinition,
+  ResearchBonuses,
+  ResearchType,
+} from "./Research";
 import { TerrainMapData } from "./TerrainMapLoader";
 import { TerraNulliusImpl } from "./TerraNulliusImpl";
 import { UnitGrid, UnitPredicate } from "./UnitGrid";
@@ -578,6 +584,50 @@ export class PlayerView {
           (this.game.ticks() + 1 - this.lastDeleteUnitTick()),
       ) / 10
     );
+  }
+
+  // Research methods
+  hasResearch(type: ResearchType): boolean {
+    return this.data.completedResearches?.includes(type) ?? false;
+  }
+
+  getCompletedResearches(): ResearchType[] {
+    return (this.data.completedResearches ?? []) as ResearchType[];
+  }
+
+  getCurrentResearch(): ResearchType | null {
+    return (this.data.currentResearch as ResearchType) ?? null;
+  }
+
+  getResearchProgress(): number {
+    return this.data.researchProgress ?? 0;
+  }
+
+  canStartResearch(type: ResearchType): boolean {
+    // Already researched
+    if (this.hasResearch(type)) {
+      return false;
+    }
+    // Currently researching something
+    if (this.getCurrentResearch() !== null) {
+      return false;
+    }
+    // Check cost
+    const def = getResearchDefinition(type);
+    if (this.gold() < def.cost) {
+      return false;
+    }
+    // Check prerequisites
+    for (const prereq of def.prerequisites) {
+      if (!this.hasResearch(prereq)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  getResearchBonuses(): ResearchBonuses {
+    return calculateCombinedBonuses(this.getCompletedResearches());
   }
 }
 

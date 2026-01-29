@@ -9,6 +9,7 @@ import {
   UnitType,
 } from "../core/game/Game";
 import { TileRef } from "../core/game/GameMap";
+import { ResearchType } from "../core/game/Research";
 import { PlayerView } from "../core/game/GameView";
 import {
   AllPlayersStats,
@@ -178,6 +179,10 @@ export class SendUpdateGameConfigIntentEvent implements GameEvent {
   constructor(public readonly config: Partial<GameConfig>) {}
 }
 
+export class SendResearchIntentEvent implements GameEvent {
+  constructor(public readonly researchType: ResearchType) {}
+}
+
 export class Transport {
   private socket: WebSocket | null = null;
 
@@ -266,6 +271,9 @@ export class Transport {
 
     this.eventBus.on(SendUpdateGameConfigIntentEvent, (e) =>
       this.onSendUpdateGameConfigIntent(e),
+    );
+    this.eventBus.on(SendResearchIntentEvent, (e) =>
+      this.onSendResearchIntent(e),
     );
   }
 
@@ -669,6 +677,14 @@ export class Transport {
       type: "update_game_config",
       clientID: this.lobbyConfig.clientID,
       config: event.config,
+    });
+  }
+
+  private onSendResearchIntent(event: SendResearchIntentEvent) {
+    this.sendIntent({
+      type: "research",
+      clientID: this.lobbyConfig.clientID,
+      researchType: event.researchType,
     });
   }
 
