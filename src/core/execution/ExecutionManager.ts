@@ -26,6 +26,7 @@ import { ResearchExecution } from "./ResearchExecution";
 import { RetreatExecution } from "./RetreatExecution";
 import { SpawnExecution } from "./SpawnExecution";
 import { TargetPlayerExecution } from "./TargetPlayerExecution";
+import { TransportPlaneExecution } from "./TransportPlaneExecution";
 import { TransportShipExecution } from "./TransportShipExecution";
 import { UpgradeStructureExecution } from "./UpgradeStructureExecution";
 import { PlayerSpawner } from "./utils/PlayerSpawner";
@@ -128,6 +129,8 @@ export class Executor {
         return new PauseExecution(player, intent.paused);
       case "research":
         return new ResearchExecution(player, intent.researchType);
+      case "paratrooper":
+        return new TransportPlaneExecution(player, intent.dst, intent.troops);
       case "update_game_config":
         // Update game config intent is handled elsewhere
         return new NoOpExecution();
