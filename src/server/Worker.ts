@@ -94,7 +94,18 @@ export async function startWorker() {
   });
 
   app.set("trust proxy", 3);
-  app.use(compression());
+  app.use(
+    compression({
+      // Exclude binary map files from compression to prevent decompression issues
+      // with certain proxy configurations (e.g., Railway)
+      filter: (req, res) => {
+        if (req.path.endsWith(".bin")) {
+          return false;
+        }
+        return compression.filter(req, res);
+      },
+    }),
+  );
   app.use(express.json());
 
   // Configure MIME types for webp files
