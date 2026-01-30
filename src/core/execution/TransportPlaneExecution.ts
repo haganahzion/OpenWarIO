@@ -205,8 +205,14 @@ export class TransportPlaneExecution implements Execution {
       return;
     }
 
-    // First, conquer the landing tile (like boats do)
-    this.attacker.conquer(this.dst);
+    // Conquer a small landing zone around the destination (like spawn mechanics)
+    // This gives paratroopers an immediate foothold
+    const landingZone = this.getLandingZoneTiles(this.dst, 2);
+    for (const tile of landingZone) {
+      if (this.mg.isLand(tile)) {
+        this.attacker.conquer(tile);
+      }
+    }
 
     // Check relationship with current owner
     if (currentOwner.isPlayer() && !this.attacker.isOnSameTeam(currentOwner)) {
@@ -240,6 +246,30 @@ export class TransportPlaneExecution implements Execution {
     }
 
     this.active = false;
+  }
+
+  // Get tiles within a small radius for the landing zone
+  private getLandingZoneTiles(center: TileRef, radius: number): TileRef[] {
+    const tiles: TileRef[] = [center];
+    const visited = new Set<TileRef>();
+    visited.add(center);
+
+    let frontier = [center];
+    for (let i = 0; i < radius; i++) {
+      const nextFrontier: TileRef[] = [];
+      for (const tile of frontier) {
+        for (const neighbor of this.mg.neighbors(tile)) {
+          if (!visited.has(neighbor) && this.mg.isLand(neighbor)) {
+            visited.add(neighbor);
+            tiles.push(neighbor);
+            nextFrontier.push(neighbor);
+          }
+        }
+      }
+      frontier = nextFrontier;
+    }
+
+    return tiles;
   }
 
   owner(): Player {

@@ -528,23 +528,28 @@ export class UnitLayer implements Layer {
   private handleTransportPlaneEvent(unit: UnitView) {
     const rel = this.relationship(unit);
 
+    // If unit is not active, just clear the trail and return
+    if (!unit.isActive()) {
+      this.clearTrail(unit);
+      return;
+    }
+
     if (!this.unitToTrail.has(unit)) {
       this.unitToTrail.set(unit, []);
     }
     const trail = this.unitToTrail.get(unit) ?? [];
-    trail.push(unit.lastTile());
+    const currentTile = unit.lastTile();
+
+    // Only add tile if it's different from the last one
+    if (trail.length === 0 || trail[trail.length - 1] !== currentTile) {
+      trail.push(currentTile);
+    }
 
     // Paint trail with lower alpha for air units (more transparent)
     this.drawPlaneTrail(trail.slice(-1), unit.owner().territoryColor(), rel);
 
-    // Draw the plane as a triangle
-    if (unit.isActive()) {
-      this.drawPlane(unit);
-    }
-
-    if (!unit.isActive()) {
-      this.clearTrail(unit);
-    }
+    // Draw the plane
+    this.drawPlane(unit);
   }
 
   private drawPlaneTrail(
@@ -568,7 +573,7 @@ export class UnitLayer implements Layer {
   private drawPlane(unit: UnitView) {
     const x = this.game.x(unit.tile());
     const y = this.game.y(unit.tile());
-    const size = 8;
+    const size = 10;
 
     // Calculate direction based on target tile
     const targetTile = unit.targetTile();
@@ -579,27 +584,57 @@ export class UnitLayer implements Layer {
       angle = Math.atan2(targetY - y, targetX - x);
     }
 
+    const color = unit.owner().territoryColor();
+    const borderColor = unit.owner().borderColor();
+
     this.context.save();
     this.context.translate(x, y);
     this.context.rotate(angle);
 
-    // Draw triangle pointing in direction of travel
+    // Draw airplane shape (similar to airport icon)
+    // Fuselage (body)
     this.context.beginPath();
-    this.context.moveTo(size, 0); // nose
-    this.context.lineTo(-size * 0.6, -size * 0.5); // left wing
-    this.context.lineTo(-size * 0.3, 0); // tail indent
-    this.context.lineTo(-size * 0.6, size * 0.5); // right wing
-    this.context.closePath();
-
-    // Fill with player color
-    const color = unit.owner().territoryColor();
-    this.context.fillStyle = color.alpha(0.8).toRgbString();
+    this.context.ellipse(0, 0, size * 0.8, size * 0.25, 0, 0, Math.PI * 2);
+    this.context.fillStyle = color.alpha(0.9).toRgbString();
     this.context.fill();
-
-    // Stroke with border color
-    this.context.strokeStyle = unit.owner().borderColor().toRgbString();
+    this.context.strokeStyle = borderColor.toRgbString();
     this.context.lineWidth = 1;
     this.context.stroke();
+
+    // Main wings
+    this.context.beginPath();
+    this.context.moveTo(size * 0.1, 0);
+    this.context.lineTo(-size * 0.3, -size * 0.9);
+    this.context.lineTo(-size * 0.4, -size * 0.9);
+    this.context.lineTo(-size * 0.2, 0);
+    this.context.lineTo(-size * 0.4, size * 0.9);
+    this.context.lineTo(-size * 0.3, size * 0.9);
+    this.context.closePath();
+    this.context.fillStyle = color.alpha(0.85).toRgbString();
+    this.context.fill();
+    this.context.stroke();
+
+    // Tail wings
+    this.context.beginPath();
+    this.context.moveTo(-size * 0.6, 0);
+    this.context.lineTo(-size * 0.8, -size * 0.4);
+    this.context.lineTo(-size * 0.85, -size * 0.4);
+    this.context.lineTo(-size * 0.7, 0);
+    this.context.lineTo(-size * 0.85, size * 0.4);
+    this.context.lineTo(-size * 0.8, size * 0.4);
+    this.context.closePath();
+    this.context.fillStyle = color.alpha(0.85).toRgbString();
+    this.context.fill();
+    this.context.stroke();
+
+    // Nose cone
+    this.context.beginPath();
+    this.context.moveTo(size * 0.8, 0);
+    this.context.lineTo(size * 0.6, -size * 0.15);
+    this.context.lineTo(size * 0.6, size * 0.15);
+    this.context.closePath();
+    this.context.fillStyle = borderColor.alpha(0.9).toRgbString();
+    this.context.fill();
 
     this.context.restore();
   }
