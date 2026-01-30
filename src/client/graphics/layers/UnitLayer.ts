@@ -263,6 +263,21 @@ export class UnitLayer implements Layer {
       this.clearUnitsCells(unitsToUpdate);
       this.drawUnitsCells(unitsToUpdate);
     }
+
+    // Clean up trails for units that no longer exist or are inactive
+    this.cleanupStaleTrails();
+  }
+
+  private cleanupStaleTrails() {
+    const toRemove: UnitView[] = [];
+    for (const [unit] of this.unitToTrail) {
+      if (!unit.isActive()) {
+        toRemove.push(unit);
+      }
+    }
+    for (const unit of toRemove) {
+      this.clearTrail(unit);
+    }
   }
 
   private clearUnitsCells(unitViews: UnitView[]) {
@@ -517,8 +532,8 @@ export class UnitLayer implements Layer {
     const trail = this.unitToTrail.get(unit) ?? [];
     trail.push(unit.lastTile());
 
-    // Paint trail (with lighter alpha for air units)
-    this.drawTrail(trail.slice(-1), unit.owner().territoryColor(), rel);
+    // Paint trail with lower alpha for air units (more transparent)
+    this.drawPlaneTrail(trail.slice(-1), unit.owner().territoryColor(), rel);
 
     // Draw the plane as a triangle
     if (unit.isActive()) {
@@ -527,6 +542,24 @@ export class UnitLayer implements Layer {
 
     if (!unit.isActive()) {
       this.clearTrail(unit);
+    }
+  }
+
+  private drawPlaneTrail(
+    trail: number[],
+    color: Colord,
+    rel: Relationship,
+  ) {
+    // Paint new trail with lower alpha (more transparent than boats)
+    for (const t of trail) {
+      this.paintCell(
+        this.game.x(t),
+        this.game.y(t),
+        rel,
+        color,
+        60, // Lower alpha for plane trails (boats use 150)
+        this.unitTrailContext,
+      );
     }
   }
 

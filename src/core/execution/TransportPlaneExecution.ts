@@ -200,14 +200,19 @@ export class TransportPlaneExecution implements Execution {
       // Conquer the landing tile first
       this.attacker.conquer(this.dst);
 
+      // Add the paratrooper troops to the player's pool so they persist
+      // and can reinforce the attack from the beachhead
+      this.attacker.addTroops(troops);
+
       // Then start an attack execution from that position
+      // Use removeTroops: true so the attack draws from the player's pool
       this.mg.addExecution(
         new AttackExecution(
           troops,
           this.attacker,
           this.target.id(),
           this.dst,
-          false,
+          true,
         ),
       );
 

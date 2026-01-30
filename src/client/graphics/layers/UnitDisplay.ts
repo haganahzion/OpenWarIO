@@ -13,6 +13,7 @@ import { Layer } from "./Layer";
 import warshipIcon from "/images/BattleshipIconWhite.svg?url";
 import cityIcon from "/images/CityIconWhite.svg?url";
 import factoryIcon from "/images/FactoryIconWhite.svg?url";
+import airportIcon from "/images/AirportIconWhite.svg?url";
 import mirvIcon from "/images/MIRVIcon.svg?url";
 import missileSiloIcon from "/images/MissileSiloIconWhite.svg?url";
 import hydrogenBombIcon from "/images/MushroomCloudIconWhite.svg?url";
@@ -152,7 +153,7 @@ export class UnitDisplay extends LitElement implements Layer {
               this.keybinds["buildFactory"]?.key ?? "2",
             )}
             ${this.renderUnitItem(
-              factoryIcon,
+              airportIcon,
               this._airports,
               UnitType.Airport,
               "airport",
