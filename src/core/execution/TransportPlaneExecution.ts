@@ -205,32 +205,21 @@ export class TransportPlaneExecution implements Execution {
       return;
     }
 
-    // Conquer a small landing zone around the destination (like spawn mechanics)
-    // This gives paratroopers an immediate foothold
-    // Radius of 3 gives a visible beachhead
-    const landingZone = this.getLandingZoneTiles(this.dst, 3);
-    for (const tile of landingZone) {
-      if (this.mg.isLand(tile)) {
-        this.attacker.conquer(tile);
-      }
-    }
+    // Conquer the landing tile (exactly like boats do)
+    this.attacker.conquer(this.dst);
 
     // Check relationship with current owner
     if (currentOwner.isPlayer() && !this.attacker.isOnSameTeam(currentOwner)) {
-      // Landing on enemy territory - start an attack
-      // Add the paratrooper troops to the player's pool so they persist
-      // and can reinforce the attack from the beachhead
-      this.attacker.addTroops(troops);
-
-      // Then start an attack execution from that position
-      // Use removeTroops: true so the attack draws from the player's pool
+      // Landing on enemy territory - start an attack (exactly like boats)
+      // Use removeTroops: false so the attack uses these dedicated troops
+      // and spreads conquest from the landing tile
       this.mg.addExecution(
         new AttackExecution(
           troops,
           this.attacker,
           currentOwner.id(),
           this.dst,
-          true,
+          false, // removeTroops: false, like boats - troops dedicated to this attack
         ),
       );
 
@@ -247,30 +236,6 @@ export class TransportPlaneExecution implements Execution {
     }
 
     this.active = false;
-  }
-
-  // Get tiles within a small radius for the landing zone
-  private getLandingZoneTiles(center: TileRef, radius: number): TileRef[] {
-    const tiles: TileRef[] = [center];
-    const visited = new Set<TileRef>();
-    visited.add(center);
-
-    let frontier = [center];
-    for (let i = 0; i < radius; i++) {
-      const nextFrontier: TileRef[] = [];
-      for (const tile of frontier) {
-        for (const neighbor of this.mg.neighbors(tile)) {
-          if (!visited.has(neighbor) && this.mg.isLand(neighbor)) {
-            visited.add(neighbor);
-            tiles.push(neighbor);
-            nextFrontier.push(neighbor);
-          }
-        }
-      }
-      frontier = nextFrontier;
-    }
-
-    return tiles;
   }
 
   owner(): Player {
