@@ -213,10 +213,10 @@ export class TransportPlaneExecution implements Execution {
 
       this.mg.displayMessage(
         "events_display.paratrooper_landed",
-        MessageType.ATTACK_STARTED,
+        MessageType.ATTACK_REQUEST,
         this.attacker.id(),
-        this.target.id(),
-        { troops: renderTroops(troops) },
+        undefined,
+        { troops: renderTroops(troops), name: this.target.displayName() },
       );
     } else {
       // Landing on terra nullius - just conquer and add troops back

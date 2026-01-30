@@ -787,7 +787,9 @@
     "unit_captured_by_enemy": "Your {unit} was captured by {name}",
     "captured_enemy_unit": "Captured {unit} from {name}",
     "unit_destroyed": "Your {unit} was destroyed",
-    "no_boats_available": "No boats available, max {max}"
+    "no_boats_available": "No boats available, max {max}",
+    "no_airport": "No airport available for paratrooper drop",
+    "paratrooper_landed": "Paratroopers ({troops}) landed in {name}'s territory"
   },
   "unit_info_modal": {
     "structure_info": "Structure Info",
@@ -936,7 +938,9 @@
   },
   "radial_menu": {
     "delete_unit_title": "Delete Unit",
-    "delete_unit_description": "Click to delete the nearest unit"
+    "delete_unit_description": "Click to delete the nearest unit",
+    "paratrooper_title": "Paratrooper Drop",
+    "paratrooper_description": "Send troops via airplane to drop behind enemy lines"
   },
   "discord_user_header": {
     "avatar_alt": "Avatar"

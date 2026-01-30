@@ -22,6 +22,7 @@ import donateGoldIcon from "/images/DonateGoldIconWhite.svg?url";
 import donateTroopIcon from "/images/DonateTroopIconWhite.svg?url";
 import emojiIcon from "/images/EmojiIconWhite.svg?url";
 import infoIcon from "/images/InfoIcon.svg?url";
+import paratrooperIcon from "/images/TroopIconWhite.svg?url";
 import swordIcon from "/images/SwordIconWhite.svg?url";
 import targetIcon from "/images/TargetIconWhite.svg?url";
 import traitorIcon from "/images/TraitorIconWhite.svg?url";
@@ -75,6 +76,7 @@ export const COLORS = {
   build: "#ebe250",
   building: "#2c2c2c",
   boat: "#3f6ab1",
+  paratrooper: "#4a9b5f",
   ally: "#53ac75",
   breakAlly: "#c74848",
   delete: "#ff0000",
@@ -103,6 +105,7 @@ export const COLORS = {
 export enum Slot {
   Info = "info",
   Boat = "boat",
+  Paratrooper = "paratrooper",
   Build = "build",
   Attack = "attack",
   Ally = "ally",
@@ -583,6 +586,37 @@ export const boatMenuElement: MenuElement = {
   },
 };
 
+export const paratrooperMenuElement: MenuElement = {
+  id: Slot.Paratrooper,
+  name: "paratrooper",
+  displayed: (params: MenuElementParams) =>
+    !params.game.config().isUnitDisabled(UnitType.Airport),
+  disabled: (params: MenuElementParams) => {
+    // Check if player has a completed airport
+    const airports = params.myPlayer.units(UnitType.Airport);
+    const hasCompletedAirport = airports.some(
+      (airport) => !airport.isUnderConstruction(),
+    );
+    return !hasCompletedAirport;
+  },
+  icon: paratrooperIcon,
+  color: COLORS.paratrooper,
+  tooltipKeys: [
+    {
+      key: "radial_menu.paratrooper_title",
+      className: "title",
+    },
+    {
+      key: "radial_menu.paratrooper_description",
+      className: "description",
+    },
+  ],
+  action: async (params: MenuElementParams) => {
+    params.playerActionHandler.handleParatrooper(params.myPlayer, params.tile);
+    params.closeMenu();
+  },
+};
+
 export const centerButtonElement: CenterButtonElement = {
   disabled: (params: MenuElementParams): boolean => {
     const tileOwner = params.game.owner(params.tile);
@@ -654,6 +688,7 @@ export const rootMenuElement: MenuElement = {
         ? [deleteUnitElement, ally, buildMenuElement]
         : [
             boatMenuElement,
+            paratrooperMenuElement,
             ally,
             isFriendlyTarget(params) && !isDisconnectedTarget(params)
               ? donateGoldRadialElement

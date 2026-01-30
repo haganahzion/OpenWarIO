@@ -310,6 +310,9 @@ export class UnitLayer implements Layer {
       case UnitType.TransportShip:
         this.handleBoatEvent(unit);
         break;
+      case UnitType.TransportPlane:
+        this.handleTransportPlaneEvent(unit);
+        break;
       case UnitType.Warship:
         this.handleWarShipEvent(unit);
         break;
@@ -503,6 +506,67 @@ export class UnitLayer implements Layer {
     if (!unit.isActive()) {
       this.clearTrail(unit);
     }
+  }
+
+  private handleTransportPlaneEvent(unit: UnitView) {
+    const rel = this.relationship(unit);
+
+    if (!this.unitToTrail.has(unit)) {
+      this.unitToTrail.set(unit, []);
+    }
+    const trail = this.unitToTrail.get(unit) ?? [];
+    trail.push(unit.lastTile());
+
+    // Paint trail (with lighter alpha for air units)
+    this.drawTrail(trail.slice(-1), unit.owner().territoryColor(), rel);
+
+    // Draw the plane as a triangle
+    if (unit.isActive()) {
+      this.drawPlane(unit);
+    }
+
+    if (!unit.isActive()) {
+      this.clearTrail(unit);
+    }
+  }
+
+  private drawPlane(unit: UnitView) {
+    const x = this.game.x(unit.tile());
+    const y = this.game.y(unit.tile());
+    const size = 8;
+
+    // Calculate direction based on target tile
+    const targetTile = unit.targetTile();
+    let angle = 0;
+    if (targetTile !== undefined) {
+      const targetX = this.game.x(targetTile);
+      const targetY = this.game.y(targetTile);
+      angle = Math.atan2(targetY - y, targetX - x);
+    }
+
+    this.context.save();
+    this.context.translate(x, y);
+    this.context.rotate(angle);
+
+    // Draw triangle pointing in direction of travel
+    this.context.beginPath();
+    this.context.moveTo(size, 0); // nose
+    this.context.lineTo(-size * 0.6, -size * 0.5); // left wing
+    this.context.lineTo(-size * 0.3, 0); // tail indent
+    this.context.lineTo(-size * 0.6, size * 0.5); // right wing
+    this.context.closePath();
+
+    // Fill with player color
+    const color = unit.owner().territoryColor();
+    this.context.fillStyle = color.alpha(0.8).toRgbString();
+    this.context.fill();
+
+    // Stroke with border color
+    this.context.strokeStyle = unit.owner().borderColor().toRgbString();
+    this.context.lineWidth = 1;
+    this.context.stroke();
+
+    this.context.restore();
   }
 
   paintCell(

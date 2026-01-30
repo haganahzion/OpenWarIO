@@ -183,6 +183,13 @@ export class SendResearchIntentEvent implements GameEvent {
   constructor(public readonly researchType: ResearchType) {}
 }
 
+export class SendParatrooperIntentEvent implements GameEvent {
+  constructor(
+    public readonly dst: TileRef,
+    public readonly troops: number,
+  ) {}
+}
+
 export class Transport {
   private socket: WebSocket | null = null;
 
@@ -274,6 +281,9 @@ export class Transport {
     );
     this.eventBus.on(SendResearchIntentEvent, (e) =>
       this.onSendResearchIntent(e),
+    );
+    this.eventBus.on(SendParatrooperIntentEvent, (e) =>
+      this.onSendParatrooperIntent(e),
     );
   }
 
@@ -685,6 +695,15 @@ export class Transport {
       type: "research",
       clientID: this.lobbyConfig.clientID,
       researchType: event.researchType,
+    });
+  }
+
+  private onSendParatrooperIntent(event: SendParatrooperIntentEvent) {
+    this.sendIntent({
+      type: "paratrooper",
+      clientID: this.lobbyConfig.clientID,
+      dst: event.dst,
+      troops: event.troops,
     });
   }
 
