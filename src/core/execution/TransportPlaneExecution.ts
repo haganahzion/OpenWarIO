@@ -207,7 +207,8 @@ export class TransportPlaneExecution implements Execution {
 
     // Conquer a small landing zone around the destination (like spawn mechanics)
     // This gives paratroopers an immediate foothold
-    const landingZone = this.getLandingZoneTiles(this.dst, 2);
+    // Radius of 3 gives a visible beachhead
+    const landingZone = this.getLandingZoneTiles(this.dst, 3);
     for (const tile of landingZone) {
       if (this.mg.isLand(tile)) {
         this.attacker.conquer(tile);

@@ -280,6 +280,19 @@ export class UnitLayer implements Layer {
     for (const unit of toRemove) {
       this.clearTrail(unit);
     }
+
+    // Also clean up stale plane positions
+    const planesToRemove: UnitView[] = [];
+    for (const [unit, tile] of this.oldPlaneTile) {
+      if (!unit.isActive() || this.game.unit(unit.id()) === undefined) {
+        planesToRemove.push(unit);
+        // Clear the plane visual at its last position
+        this.clearPlaneAt(this.game.x(tile), this.game.y(tile));
+      }
+    }
+    for (const unit of planesToRemove) {
+      this.oldPlaneTile.delete(unit);
+    }
   }
 
   private clearUnitsCells(unitViews: UnitView[]) {
@@ -525,14 +538,28 @@ export class UnitLayer implements Layer {
     }
   }
 
+  private oldPlaneTile: Map<UnitView, TileRef> = new Map();
+
   private handleTransportPlaneEvent(unit: UnitView) {
     const rel = this.relationship(unit);
 
-    // If unit is not active, just clear the trail and return
+    // Clear the plane's previous position from the main canvas
+    const oldTile = this.oldPlaneTile.get(unit);
+    if (oldTile !== undefined) {
+      this.clearPlaneAt(this.game.x(oldTile), this.game.y(oldTile));
+    }
+
+    // If unit is not active, clear the trail and plane, then clean up
     if (!unit.isActive()) {
+      // Clear the plane at its last known position
+      this.clearPlaneAt(this.game.x(unit.lastTile()), this.game.y(unit.lastTile()));
       this.clearTrail(unit);
+      this.oldPlaneTile.delete(unit);
       return;
     }
+
+    // Track current position for next frame clearing
+    this.oldPlaneTile.set(unit, unit.lastTile());
 
     if (!this.unitToTrail.has(unit)) {
       this.unitToTrail.set(unit, []);
@@ -550,6 +577,11 @@ export class UnitLayer implements Layer {
 
     // Draw the plane
     this.drawPlane(unit);
+  }
+
+  private clearPlaneAt(x: number, y: number) {
+    const size = 12; // Slightly larger than the plane size to ensure full clearing
+    this.context.clearRect(x - size, y - size, size * 2, size * 2);
   }
 
   private drawPlaneTrail(
