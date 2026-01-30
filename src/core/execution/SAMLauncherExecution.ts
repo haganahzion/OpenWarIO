@@ -251,8 +251,30 @@ export class SAMLauncherExecution implements Execution {
       },
     );
 
+    // Check for enemy transport planes within SAM range (anti-air)
+    const samRange = this.mg.config().samRange(this.sam.level());
+    const planeTargets = this.mg.nearbyUnits(
+      this.sam.tile(),
+      samRange,
+      UnitType.TransportPlane,
+      ({ unit }) => {
+        if (!isUnit(unit)) return false;
+        if (unit.owner() === this.player) return false;
+        if (this.player.isFriendly(unit.owner())) return false;
+        // Don't target planes already targeted by another SAM
+        if (unit.targetedBySAM()) return false;
+        return true;
+      },
+    );
+
     let target: Target | null = null;
-    if (mirvWarheadTargets.length === 0) {
+
+    // Priority: MIRV > Planes > Nukes
+    if (mirvWarheadTargets.length === 0 && planeTargets.length > 0) {
+      // Target the closest plane
+      const closestPlane = planeTargets[0];
+      target = { unit: closestPlane.unit, tile: closestPlane.unit.tile() };
+    } else if (mirvWarheadTargets.length === 0) {
       target = this.targetingSystem.getSingleTarget(ticks);
       if (target !== null) {
         console.log("Target acquired");

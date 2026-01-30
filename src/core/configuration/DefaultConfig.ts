@@ -185,6 +185,16 @@ export class DefaultConfig implements Config {
     return 250_000;
   }
 
+  // Airports give a smaller population bonus than cities (tourism/workers)
+  airportTroopIncrease(): number {
+    return 100_000;
+  }
+
+  // Airports generate income from flights and tourism
+  airportGoldBonus(): number {
+    return 50; // Gold per tick per airport level
+  }
+
   falloutDefenseModifier(falloutRatio: number): number {
     // falloutRatio is between 0 and 1
     // So defense modifier is between [5, 2.5]
@@ -758,15 +768,24 @@ export class DefaultConfig implements Config {
   }
 
   maxTroops(player: Player | PlayerView): number {
+    const cityBonus =
+      player
+        .units(UnitType.City)
+        .map((city) => city.level())
+        .reduce((a, b) => a + b, 0) * this.cityTroopIncrease();
+
+    const airportBonus =
+      player
+        .units(UnitType.Airport)
+        .map((airport) => airport.level())
+        .reduce((a, b) => a + b, 0) * this.airportTroopIncrease();
+
     const maxTroops =
       player.type() === PlayerType.Human && this.infiniteTroops()
         ? 1_000_000_000
         : 2 * (Math.pow(player.numTilesOwned(), 0.6) * 1000 + 50000) +
-          player
-            .units(UnitType.City)
-            .map((city) => city.level())
-            .reduce((a, b) => a + b, 0) *
-            this.cityTroopIncrease();
+          cityBonus +
+          airportBonus;
 
     if (player.type() === PlayerType.Bot) {
       return maxTroops / 3;
@@ -832,7 +851,15 @@ export class DefaultConfig implements Config {
     } else {
       baseRate = 100n;
     }
-    return BigInt(Math.floor(Number(baseRate) * multiplier));
+
+    // Airport income bonus (flights and tourism)
+    const airportLevels = player
+      .units(UnitType.Airport)
+      .map((airport) => airport.level())
+      .reduce((a, b) => a + b, 0);
+    const airportIncome = BigInt(airportLevels * this.airportGoldBonus());
+
+    return BigInt(Math.floor(Number(baseRate) * multiplier)) + airportIncome;
   }
 
   nukeMagnitudes(unitType: UnitType): NukeMagnitude {
