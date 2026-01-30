@@ -205,8 +205,10 @@ export class TransportPlaneExecution implements Execution {
       return;
     }
 
-    // Conquer the landing tile (exactly like boats do)
-    this.attacker.conquer(this.dst);
+    // Paratroopers land in the MIDDLE of enemy territory (unlike boats which land on shore)
+    // They need a bigger initial foothold to survive being surrounded
+    // Conquer a landing zone of radius 4 to give them a defensible beachhead
+    this.conquerLandingZone(this.dst, 4);
 
     // Check relationship with current owner
     if (currentOwner.isPlayer() && !this.attacker.isOnSameTeam(currentOwner)) {
@@ -236,6 +238,36 @@ export class TransportPlaneExecution implements Execution {
     }
 
     this.active = false;
+  }
+
+  // Conquer a landing zone using BFS from center tile
+  private conquerLandingZone(center: TileRef, radius: number): void {
+    const visited = new Set<TileRef>();
+    visited.add(center);
+
+    // Conquer center tile
+    if (this.mg.isLand(center)) {
+      this.attacker.conquer(center);
+    }
+
+    // BFS to conquer surrounding tiles
+    let frontier = [center];
+    for (let i = 0; i < radius; i++) {
+      const nextFrontier: TileRef[] = [];
+      for (const tile of frontier) {
+        for (const neighbor of this.mg.neighbors(tile)) {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            if (this.mg.isLand(neighbor)) {
+              this.attacker.conquer(neighbor);
+              nextFrontier.push(neighbor);
+            }
+          }
+        }
+      }
+      frontier = nextFrontier;
+      if (frontier.length === 0) break;
+    }
   }
 
   owner(): Player {
