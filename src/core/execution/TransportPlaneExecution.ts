@@ -195,11 +195,22 @@ export class TransportPlaneExecution implements Execution {
     // Delete the plane
     this.plane.delete(false);
 
-    // Start attack at destination
-    if (this.target.isPlayer()) {
-      // Conquer the landing tile first
-      this.attacker.conquer(this.dst);
+    // Check current owner of destination tile (may have changed since init)
+    const currentOwner = this.mg.owner(this.dst);
 
+    // Check if destination is land (can only conquer land tiles)
+    if (!this.mg.isLand(this.dst)) {
+      // Landed on water - troops are lost
+      this.active = false;
+      return;
+    }
+
+    // First, conquer the landing tile (like boats do)
+    this.attacker.conquer(this.dst);
+
+    // Check relationship with current owner
+    if (currentOwner.isPlayer() && !this.attacker.isOnSameTeam(currentOwner)) {
+      // Landing on enemy territory - start an attack
       // Add the paratrooper troops to the player's pool so they persist
       // and can reinforce the attack from the beachhead
       this.attacker.addTroops(troops);
@@ -210,7 +221,7 @@ export class TransportPlaneExecution implements Execution {
         new AttackExecution(
           troops,
           this.attacker,
-          this.target.id(),
+          currentOwner.id(),
           this.dst,
           true,
         ),
@@ -221,11 +232,10 @@ export class TransportPlaneExecution implements Execution {
         MessageType.ATTACK_REQUEST,
         this.attacker.id(),
         undefined,
-        { troops: renderTroops(troops), name: this.target.displayName() },
+        { troops: renderTroops(troops), name: currentOwner.displayName() },
       );
     } else {
-      // Landing on terra nullius - just conquer and add troops back
-      this.attacker.conquer(this.dst);
+      // Landing on friendly territory or terra nullius - just add troops back
       this.attacker.addTroops(troops);
     }
 

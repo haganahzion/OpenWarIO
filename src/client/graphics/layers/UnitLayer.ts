@@ -271,7 +271,9 @@ export class UnitLayer implements Layer {
   private cleanupStaleTrails() {
     const toRemove: UnitView[] = [];
     for (const [unit] of this.unitToTrail) {
-      if (!unit.isActive()) {
+      // Check if unit is inactive OR if unit no longer exists in the game
+      // (unit might be removed from game but stale reference still in unitToTrail)
+      if (!unit.isActive() || this.game.unit(unit.id()) === undefined) {
         toRemove.push(unit);
       }
     }

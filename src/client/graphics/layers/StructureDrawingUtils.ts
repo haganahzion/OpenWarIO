@@ -9,6 +9,7 @@ import factoryIcon from "/images/FactoryUnit.png?url";
 import missileSiloIcon from "/images/MissileSiloUnit.png?url";
 import SAMMissileIcon from "/images/SamLauncherUnit.png?url";
 import shieldIcon from "/images/ShieldIcon.png?url";
+import airportIcon from "/images/AirportIconWhite.svg?url";
 
 export const STRUCTURE_SHAPES: Partial<Record<UnitType, ShapeType>> = {
   [UnitType.City]: "circle",
@@ -21,6 +22,7 @@ export const STRUCTURE_SHAPES: Partial<Record<UnitType, ShapeType>> = {
   [UnitType.AtomBomb]: "cross",
   [UnitType.HydrogenBomb]: "cross",
   [UnitType.MIRV]: "cross",
+  [UnitType.Airport]: "square",
 };
 export const LEVEL_SCALE_FACTOR = 3;
 export const ICON_SCALE_FACTOR_ZOOMED_IN = 3.5;
@@ -62,6 +64,7 @@ export class SpriteFactory {
     [UnitType.Port, { iconPath: anchorIcon, image: null }],
     [UnitType.MissileSilo, { iconPath: missileSiloIcon, image: null }],
     [UnitType.SAMLauncher, { iconPath: SAMMissileIcon, image: null }],
+    [UnitType.Airport, { iconPath: airportIcon, image: null }],
   ]);
   constructor(
     theme: Theme,

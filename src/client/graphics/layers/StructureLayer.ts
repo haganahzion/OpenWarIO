@@ -14,6 +14,7 @@ import shieldIcon from "/images/buildings/fortAlt3.png?url";
 import anchorIcon from "/images/buildings/port1.png?url";
 import missileSiloIcon from "/images/buildings/silo1.png?url";
 import SAMMissileIcon from "/images/buildings/silo4.png?url";
+import airportIcon from "/images/AirportIconWhite.svg?url";
 
 const underConstructionColor = colord("rgb(150,150,150)");
 
@@ -66,6 +67,11 @@ export class StructureLayer implements Layer {
     },
     [UnitType.SAMLauncher]: {
       icon: SAMMissileIcon,
+      borderRadius: BASE_BORDER_RADIUS * RADIUS_SCALE_FACTOR,
+      territoryRadius: BASE_TERRITORY_RADIUS * RADIUS_SCALE_FACTOR,
+    },
+    [UnitType.Airport]: {
+      icon: airportIcon,
       borderRadius: BASE_BORDER_RADIUS * RADIUS_SCALE_FACTOR,
       territoryRadius: BASE_TERRITORY_RADIUS * RADIUS_SCALE_FACTOR,
     },
