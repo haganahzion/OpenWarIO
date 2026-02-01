@@ -26,6 +26,7 @@ import { getUserMe, verifyClientToken } from "./jwt";
 import { logger } from "./Logger";
 
 import { GameEnv } from "../core/configuration/Config";
+import { Env } from "../core/configuration/Env";
 import { MapPlaylist } from "./MapPlaylist";
 import { startPolling } from "./PollingLoop";
 import { PrivilegeRefresher } from "./PrivilegeRefresher";
@@ -397,7 +398,8 @@ export async function startWorker() {
           return;
         }
 
-        if (config.env() !== GameEnv.Dev) {
+        // Skip Turnstile in dev mode or when explicitly disabled
+        if (config.env() !== GameEnv.Dev && !Env.DISABLE_TURNSTILE) {
           const turnstileResult = await verifyTurnstileToken(
             ip,
             clientMsg.turnstileToken,

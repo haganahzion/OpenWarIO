@@ -89,4 +89,8 @@ export const Env = {
   get ADMIN_TOKEN() {
     return getEnv("ADMIN_TOKEN");
   },
+  get DISABLE_TURNSTILE() {
+    const val = getEnv("DISABLE_TURNSTILE");
+    return val === "true" || val === "1";
+  },
 };

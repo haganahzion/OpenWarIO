@@ -965,26 +965,32 @@ class Client {
       return null;
     }
 
-    if (this.turnstileTokenPromise === null) {
-      console.log("No prefetched turnstile token, getting new token");
-      return (await getTurnstileToken())?.token ?? null;
-    }
+    try {
+      if (this.turnstileTokenPromise === null) {
+        console.log("No prefetched turnstile token, getting new token");
+        return (await getTurnstileToken())?.token ?? null;
+      }
 
-    const token = await this.turnstileTokenPromise;
-    // Clear promise so a new token is fetched next time
-    this.turnstileTokenPromise = null;
-    if (!token) {
-      console.log("No turnstile token");
+      const token = await this.turnstileTokenPromise;
+      // Clear promise so a new token is fetched next time
+      this.turnstileTokenPromise = null;
+      if (!token) {
+        console.log("No turnstile token");
+        return null;
+      }
+
+      const tokenTTL = 3 * 60 * 1000;
+      if (Date.now() < token.createdAt + tokenTTL) {
+        console.log("Prefetched turnstile token is valid");
+        return token.token;
+      } else {
+        console.log("Turnstile token expired, getting new token");
+        return (await getTurnstileToken())?.token ?? null;
+      }
+    } catch (error) {
+      console.error("Failed to get Turnstile token:", error);
+      // Return null and let server decide whether to allow without Turnstile
       return null;
-    }
-
-    const tokenTTL = 3 * 60 * 1000;
-    if (Date.now() < token.createdAt + tokenTTL) {
-      console.log("Prefetched turnstile token is valid");
-      return token.token;
-    } else {
-      console.log("Turnstile token expired, getting new token");
-      return (await getTurnstileToken())?.token ?? null;
     }
   }
 }
@@ -1035,7 +1041,7 @@ async function getTurnstileToken(): Promise<{
       "error-callback": (errorCode: string) => {
         window.turnstile.remove(widgetId);
         console.error(`Turnstile error: ${errorCode}`);
-        alert(`Turnstile error: ${errorCode}. Please refresh and try again.`);
+        // Don't alert - let the caller handle the error gracefully
         reject(new Error(`Turnstile failed: ${errorCode}`));
       },
     });
