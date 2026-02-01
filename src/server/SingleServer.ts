@@ -1,41 +1,24 @@
 /**
- * Single Server Mode - All-in-one server for Railway and simple deployments
- * No worker processes, no proxying - everything runs in one process
+ * Single Server Mode - Simple server for Railway and private games
+ * No workers, no complex auth - just simple game hosting
  */
 import crypto from "crypto";
 import express from "express";
-import rateLimit from "express-rate-limit";
 import http from "http";
-import ipAnonymize from "ip-anonymize";
 import path from "path";
 import { fileURLToPath } from "url";
 import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
-import { GameEnv } from "../core/configuration/Config";
-import { Env } from "../core/configuration/Env";
 import { getServerConfigFromServer } from "../core/configuration/ConfigLoader";
-import {
-  ClientMessageSchema,
-  GameConfig,
-  GameID,
-  GameInfo,
-  ID,
-} from "../core/Schemas";
+import { GameConfig, GameInfo, ClientMessageSchema } from "../core/Schemas";
 import { generateID } from "../core/Util";
-import { CreateGameInputSchema } from "../core/WorkerSchemas";
 import { GameType } from "../core/game/Game";
 import { Client } from "./Client";
 import { GameManager } from "./GameManager";
-import { getUserMe, verifyClientToken } from "./jwt";
 import { logger } from "./Logger";
-import { MapPlaylist } from "./MapPlaylist";
-import { startPolling } from "./PollingLoop";
-import { PrivilegeRefresher } from "./PrivilegeRefresher";
 import { renderHtml } from "./RenderHtml";
-import { verifyTurnstileToken } from "./Turnstile";
 
 const config = getServerConfigFromServer();
-const playlist = new MapPlaylist();
 
 const app = express();
 const server = http.createServer(app);
@@ -47,7 +30,7 @@ const __dirname = path.dirname(__filename);
 
 app.use(express.json());
 
-// Middleware to handle HTML files with EJS templating
+// Serve index.html for root
 app.use(async (req, res, next) => {
   if (req.path === "/") {
     try {
@@ -61,6 +44,7 @@ app.use(async (req, res, next) => {
   }
 });
 
+// Static files
 app.use(
   express.static(path.join(__dirname, "../../static"), {
     maxAge: "1y",
@@ -79,190 +63,103 @@ app.use(
 );
 
 app.set("trust proxy", 3);
-app.use(
-  rateLimit({
-    windowMs: 1000,
-    max: 20,
-  }),
-);
 
-let publicLobbiesData: { lobbies: GameInfo[] } = { lobbies: [] };
-const publicLobbyIDs: Set<string> = new Set();
+// Store for public lobbies
+let publicLobbies: GameInfo[] = [];
 const lobbyClients: Set<WebSocket> = new Set();
 
 function broadcastLobbies() {
   const message = JSON.stringify({
     type: "lobbies_update",
-    data: publicLobbiesData,
+    data: { lobbies: publicLobbies },
   });
-
-  const toRemove: WebSocket[] = [];
   lobbyClients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       client.send(message);
-    } else {
-      toRemove.push(client);
     }
   });
-  toRemove.forEach((c) => lobbyClients.delete(c));
 }
 
 export async function startSingleServer() {
-  log.info("Starting Single Server Mode (no workers)");
+  log.info("Starting Single Server Mode");
 
-  // Generate tokens
+  // Set admin token
   const ADMIN_TOKEN = crypto.randomBytes(16).toString("hex");
   process.env.ADMIN_TOKEN = ADMIN_TOKEN;
-
-  const INSTANCE_ID =
-    config.env() === GameEnv.Dev
-      ? "DEV_ID"
-      : crypto.randomBytes(4).toString("hex");
-  process.env.INSTANCE_ID = INSTANCE_ID;
-
-  log.info(`Instance ID: ${INSTANCE_ID}`);
+  process.env.INSTANCE_ID = crypto.randomBytes(4).toString("hex");
 
   // Create game manager
   const gm = new GameManager(config, log);
 
-  // Privilege refresher for cosmetics
-  const privilegeRefresher = new PrivilegeRefresher(
-    config.jwtIssuer() + "/cosmetics.json",
-    log,
-  );
-
-  // WebSocket server for lobby listing
+  // WebSocket servers
   const lobbyWss = new WebSocketServer({ noServer: true });
+  const gameWss = new WebSocketServer({ noServer: true });
 
-  lobbyWss.on("connection", (ws: WebSocket) => {
+  // Lobby list WebSocket
+  lobbyWss.on("connection", (ws) => {
     lobbyClients.add(ws);
-    ws.send(
-      JSON.stringify({ type: "lobbies_update", data: publicLobbiesData }),
-    );
+    ws.send(JSON.stringify({ type: "lobbies_update", data: { lobbies: publicLobbies } }));
     ws.on("close", () => lobbyClients.delete(ws));
     ws.on("error", () => lobbyClients.delete(ws));
   });
 
-  // WebSocket server for games
-  const gameWss = new WebSocketServer({ noServer: true });
+  // Game WebSocket - simplified, no auth required
+  gameWss.on("connection", (ws, req) => {
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0] ||
+               req.socket.remoteAddress ||
+               "unknown";
 
-  gameWss.on("connection", async (ws: WebSocket, req) => {
-    const forwarded = req.headers["x-forwarded-for"];
-    const ip = Array.isArray(forwarded)
-      ? forwarded[0]
-      : forwarded || req.socket.remoteAddress || "unknown";
-
-    ws.on("message", async (message: string) => {
+    ws.on("message", (data) => {
       try {
-        const parsed = ClientMessageSchema.safeParse(
-          JSON.parse(message.toString()),
-        );
-        if (!parsed.success) {
-          const error = z.prettifyError(parsed.error);
-          log.warn("Error parsing client message", error);
-          ws.send(JSON.stringify({ type: "error", error: error.toString() }));
+        const message = JSON.parse(data.toString());
+
+        if (message.type === "ping") {
           return;
         }
 
-        const clientMsg = parsed.data;
-
-        if (clientMsg.type !== "join" && clientMsg.type !== "rejoin") {
+        if (message.type !== "join" && message.type !== "rejoin") {
           return;
         }
 
-        // In single server mode, be lenient with token verification
-        // Allow anonymous users for private games with friends
-        let persistentId: string;
-        let claims: any = null;
-        let roles: string[] | undefined;
-        let flares: string[] | undefined;
+        const gameID = message.gameID;
+        const clientID = message.clientID || generateID();
+        const username = message.username || `Player${Math.floor(Math.random() * 1000)}`;
 
-        const tokenResult = await verifyClientToken(clientMsg.token, config);
-        if (tokenResult.type === "success") {
-          persistentId = tokenResult.persistentId;
-          claims = tokenResult.claims;
-
-          // If user has claims, try to get their roles/flares
-          if (claims !== null) {
-            const meResult = await getUserMe(clientMsg.token, config);
-            if (meResult.type === "success") {
-              roles = meResult.response.player.roles;
-              flares = meResult.response.player.flares;
-            }
-          }
-        } else {
-          // Token verification failed - allow as anonymous user in single server mode
-          // Use clientID as persistent ID for anonymous users
-          log.info(
-            `Allowing anonymous user ${clientMsg.clientID} (token error: ${tokenResult.message})`,
-          );
-          persistentId = clientMsg.clientID;
-        }
-
-        if (clientMsg.type === "rejoin") {
-          const wasFound = gm.rejoinClient(ws, persistentId, clientMsg);
+        if (message.type === "rejoin") {
+          const wasFound = gm.rejoinClient(ws, clientID, message);
           if (!wasFound) {
             ws.close(1002, "Game not found");
           }
           return;
         }
 
-        // Check allowed flares only if configured
-        const allowedFlares = config.allowedFlares();
-        if (allowedFlares !== undefined && claims === null) {
-          // Anonymous users not allowed when flares are required
-          ws.close(1002, "Unauthorized");
-          return;
-        }
-
-        if (allowedFlares !== undefined && claims !== null) {
-          const allowed =
-            allowedFlares.length === 0 ||
-            allowedFlares.some((f) => flares?.includes(f));
-          if (!allowed) {
-            ws.close(1002, "Forbidden");
-            return;
-          }
-        }
-
-        const cosmeticResult = privilegeRefresher
-          .get()
-          .isAllowed(flares ?? [], clientMsg.cosmetics ?? {});
-
-        if (cosmeticResult.type === "forbidden") {
-          ws.close(1002, cosmeticResult.reason);
-          return;
-        }
-
-        // Skip Turnstile if disabled or in dev mode
-        if (config.env() !== GameEnv.Dev && !Env.DISABLE_TURNSTILE) {
-          const turnstileResult = await verifyTurnstileToken(
-            ip,
-            clientMsg.turnstileToken,
-            config.turnstileSecretKey(),
-          );
-          if (turnstileResult.status === "rejected") {
-            ws.close(1002, "Unauthorized: Turnstile rejected");
-            return;
-          }
-        }
-
+        // Simple client creation - no auth needed
         const client = new Client(
-          clientMsg.clientID,
-          persistentId,
-          claims,
-          roles,
-          flares,
+          clientID,
+          clientID, // Use clientID as persistentId
+          null,     // No claims
+          undefined, // No roles
+          undefined, // No flares
           ip,
-          clientMsg.username,
+          username,
           ws,
-          cosmeticResult.cosmetics,
+          message.cosmetics || {},
         );
 
-        gm.joinClient(client, clientMsg.gameID);
+        const wasFound = gm.joinClient(client, gameID);
+        if (!wasFound) {
+          log.warn(`Game ${gameID} not found`);
+          ws.close(1002, "Game not found");
+        } else {
+          log.info(`Player ${username} (${clientID}) joined game ${gameID}`);
+        }
       } catch (error) {
-        log.error("Error handling message:", error);
+        log.error("Error handling game message:", error);
       }
+    });
+
+    ws.on("error", (err) => {
+      log.error("WebSocket error:", err);
     });
   });
 
@@ -274,77 +171,62 @@ export async function startSingleServer() {
       lobbyWss.handleUpgrade(request, socket, head, (ws) => {
         lobbyWss.emit("connection", ws, request);
       });
-      return;
-    }
-
-    // Handle /w0 or just / for game connections in single server mode
-    if (url === "/w0" || url === "/game" || url === "/") {
+    } else if (url === "/w0" || url.startsWith("/w")) {
       gameWss.handleUpgrade(request, socket, head, (ws) => {
         gameWss.emit("connection", ws, request);
       });
-      return;
+    } else {
+      socket.destroy();
     }
-
-    socket.destroy();
   });
 
-  // API Routes
+  // API: Environment info
   app.get("/api/env", (req, res) => {
     res.json({
-      game_env: process.env.GAME_ENV,
+      game_env: process.env.GAME_ENV || "production",
       num_workers: 1,
     });
   });
 
+  // API: Public lobbies
   app.get("/api/public_lobbies", (req, res) => {
-    res.json(publicLobbiesData);
+    res.json({ lobbies: publicLobbies });
   });
 
-  // Create game endpoint - handles both /api/create_game and /w0/api/create_game
-  const createGameHandler = async (
-    req: express.Request,
-    res: express.Response,
-  ) => {
-    const id = req.params.id;
-    const creatorClientID = (() => {
-      if (typeof req.query.creatorClientID !== "string") return undefined;
-      const trimmed = req.query.creatorClientID.trim();
-      return ID.safeParse(trimmed).success ? trimmed : undefined;
-    })();
+  // API: Create game (handles both paths)
+  const createGame = (req: express.Request, res: express.Response) => {
+    try {
+      const id = req.params.id;
+      if (!id) {
+        return res.status(400).json({ error: "Game ID required" });
+      }
 
-    if (!id) {
-      return res.status(400).json({ error: "Game ID is required" });
+      const creatorClientID = typeof req.query.creatorClientID === "string"
+        ? req.query.creatorClientID
+        : undefined;
+
+      // Default to private game
+      const gameConfig: Partial<GameConfig> = req.body || {};
+      if (!gameConfig.gameType) {
+        gameConfig.gameType = GameType.Private;
+      }
+
+      const game = gm.createGame(id, gameConfig as GameConfig, creatorClientID);
+      log.info(`Created ${game.isPublic() ? "public" : "private"} game: ${id}`);
+
+      res.json(game.gameInfo());
+    } catch (error) {
+      log.error("Error creating game:", error);
+      res.status(500).json({ error: "Failed to create game" });
     }
-
-    const result = CreateGameInputSchema.safeParse(req.body);
-    if (!result.success) {
-      const error = z.prettifyError(result.error);
-      return res.status(400).json({ error });
-    }
-
-    const gc = result.data;
-
-    // Only require admin token for public games
-    if (
-      gc?.gameType === GameType.Public &&
-      req.headers[config.adminHeader()] !== config.adminToken()
-    ) {
-      return res.status(401).send("Unauthorized");
-    }
-
-    const game = gm.createGame(id, gc, creatorClientID);
-    log.info(
-      `Creating ${game.isPublic() ? "Public" : "Private"} game: ${id}${creatorClientID ? ` (creator: ${creatorClientID})` : ""}`,
-    );
-
-    res.json(game.gameInfo());
   };
 
-  app.post("/api/create_game/:id", createGameHandler);
-  app.post("/w0/api/create_game/:id", createGameHandler);
+  app.post("/api/create_game/:id", createGame);
+  app.post("/w0/api/create_game/:id", createGame);
+  app.post("/w:workerId/api/create_game/:id", createGame);
 
-  // Game info endpoint
-  const gameInfoHandler = (req: express.Request, res: express.Response) => {
+  // API: Get game info
+  const getGame = (req: express.Request, res: express.Response) => {
     const game = gm.game(req.params.id);
     if (!game) {
       return res.status(404).json({ error: "Game not found" });
@@ -352,47 +234,51 @@ export async function startSingleServer() {
     res.json(game.gameInfo());
   };
 
-  app.get("/api/game/:id", gameInfoHandler);
-  app.get("/w0/api/game/:id", gameInfoHandler);
+  app.get("/api/game/:id", getGame);
+  app.get("/w0/api/game/:id", getGame);
+  app.get("/w:workerId/api/game/:id", getGame);
 
-  // Start game endpoint
-  const startGameHandler = (req: express.Request, res: express.Response) => {
+  // API: Check if game exists
+  app.get("/api/game/:id/exists", (req, res) => {
+    res.json({ exists: gm.game(req.params.id) !== null });
+  });
+  app.get("/w0/api/game/:id/exists", (req, res) => {
+    res.json({ exists: gm.game(req.params.id) !== null });
+  });
+
+  // API: Start game
+  const startGame = (req: express.Request, res: express.Response) => {
     const game = gm.game(req.params.id);
     if (!game) {
       return res.status(404).json({ error: "Game not found" });
     }
     game.start();
+    log.info(`Started game: ${req.params.id}`);
     res.json({ success: true });
   };
 
-  app.post("/api/start_game/:id", startGameHandler);
-  app.post("/w0/api/start_game/:id", startGameHandler);
+  app.post("/api/start_game/:id", startGame);
+  app.post("/w0/api/start_game/:id", startGame);
+  app.post("/w:workerId/api/start_game/:id", startGame);
 
-  // Update game config
-  app.put("/api/game/:id", (req, res) => {
+  // API: Update game config
+  const updateGame = (req: express.Request, res: express.Response) => {
     const game = gm.game(req.params.id);
     if (!game) {
       return res.status(404).json({ error: "Game not found" });
     }
-    game.updateGameConfig(req.body as Partial<GameConfig>);
+    game.updateGameConfig(req.body);
     res.json(game.gameInfo());
-  });
-  app.put("/w0/api/game/:id", (req, res) => {
-    const game = gm.game(req.params.id);
-    if (!game) {
-      return res.status(404).json({ error: "Game not found" });
-    }
-    game.updateGameConfig(req.body as Partial<GameConfig>);
-    res.json(game.gameInfo());
-  });
+  };
+
+  app.put("/api/game/:id", updateGame);
+  app.put("/w0/api/game/:id", updateGame);
+  app.put("/w:workerId/api/game/:id", updateGame);
 
   // SPA fallback
   app.get("*", async (req, res) => {
     try {
-      await renderHtml(
-        res,
-        path.join(__dirname, "../../static/index.html"),
-      );
+      await renderHtml(res, path.join(__dirname, "../../static/index.html"));
     } catch (error) {
       log.error("Error rendering SPA fallback:", error);
       res.status(500).send("Internal Server Error");
@@ -400,70 +286,10 @@ export async function startSingleServer() {
   });
 
   // Start server
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
   server.listen(PORT, () => {
     log.info(`Single Server listening on port ${PORT}`);
   });
 
-  // Fetch and broadcast lobbies
-  async function fetchLobbies(): Promise<number> {
-    const fetchPromises: Promise<GameInfo | null>[] = [];
-
-    for (const gameID of new Set(publicLobbyIDs)) {
-      const game = gm.game(gameID);
-      if (game) {
-        fetchPromises.push(Promise.resolve(game.gameInfo()));
-      } else {
-        publicLobbyIDs.delete(gameID);
-        fetchPromises.push(Promise.resolve(null));
-      }
-    }
-
-    const results = await Promise.all(fetchPromises);
-    const lobbyInfos: GameInfo[] = results
-      .filter((r) => r !== null)
-      .map((gi) => ({
-        gameID: gi.gameID,
-        numClients: gi?.clients?.length ?? 0,
-        gameConfig: gi.gameConfig,
-        msUntilStart: (gi.msUntilStart ?? Date.now()) - Date.now(),
-      }));
-
-    lobbyInfos.forEach((l) => {
-      if (l.msUntilStart !== undefined && l.msUntilStart <= 250) {
-        publicLobbyIDs.delete(l.gameID);
-      }
-      if (
-        l.gameConfig?.maxPlayers !== undefined &&
-        l.numClients !== undefined &&
-        l.gameConfig.maxPlayers <= l.numClients
-      ) {
-        publicLobbyIDs.delete(l.gameID);
-      }
-    });
-
-    publicLobbiesData = { lobbies: lobbyInfos };
-    broadcastLobbies();
-    return publicLobbyIDs.size;
-  }
-
-  // Schedule public games
-  async function schedulePublicGame() {
-    const gameID = generateID();
-    publicLobbyIDs.add(gameID);
-
-    const gameConfig = await playlist.gameConfig();
-    const game = gm.createGame(gameID, gameConfig);
-    log.info(`Scheduled public game: ${gameID}`);
-  }
-
-  // Start polling for lobbies
-  startPolling(async () => {
-    const count = await fetchLobbies();
-    if (count === 0) {
-      await schedulePublicGame();
-    }
-  }, 100);
-
-  log.info("Single Server Mode started successfully");
+  log.info("Single Server started successfully");
 }
