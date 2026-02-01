@@ -216,6 +216,88 @@ export async function startMaster() {
   server.listen(PORT, () => {
     log.info(`Master HTTP server listening on port ${PORT}`);
   });
+
+  // WebSocket proxy for worker paths /w{N}
+  // This handles game WebSocket connections when nginx is not present
+  server.on("upgrade", (request, socket, head) => {
+    const url = request.url || "";
+
+    // Handle /lobbies path with the main wss
+    if (url === "/lobbies") {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit("connection", ws, request);
+      });
+      return;
+    }
+
+    // Handle /w{N} paths - proxy to worker using raw TCP socket
+    const workerMatch = url.match(/^\/w(\d+)$/);
+    if (workerMatch) {
+      const workerIndex = parseInt(workerMatch[1], 10);
+
+      if (workerIndex < 0 || workerIndex >= config.numWorkers()) {
+        log.warn(`WebSocket: Invalid worker index ${workerIndex}`);
+        socket.destroy();
+        return;
+      }
+
+      const workerPort = config.workerPortByIndex(workerIndex);
+
+      // Create raw TCP connection to worker
+      const net = require("net") as typeof import("net");
+      const workerSocket = net.connect(workerPort, "127.0.0.1", () => {
+        // Forward the original HTTP upgrade request to worker
+        const headers = Object.entries(request.headers)
+          .filter(([key]) => key.toLowerCase() !== "host")
+          .map(([key, value]) => `${key}: ${value}`)
+          .join("\r\n");
+
+        const upgradeRequest =
+          `${request.method} / HTTP/1.1\r\n` +
+          `Host: localhost:${workerPort}\r\n` +
+          `X-Forwarded-For: ${request.headers["x-forwarded-for"] || request.socket.remoteAddress || ""}\r\n` +
+          `X-Real-IP: ${request.headers["x-real-ip"] || request.socket.remoteAddress || ""}\r\n` +
+          `${headers}\r\n\r\n`;
+
+        workerSocket.write(upgradeRequest);
+        if (head.length > 0) {
+          workerSocket.write(head);
+        }
+
+        // Pipe data bidirectionally
+        socket.pipe(workerSocket);
+        workerSocket.pipe(socket);
+
+        socket.on("error", (err) => {
+          log.error("WebSocket proxy client error:", err);
+          workerSocket.destroy();
+        });
+
+        workerSocket.on("error", (err) => {
+          log.error("WebSocket proxy worker error:", err);
+          socket.destroy();
+        });
+
+        socket.on("close", () => {
+          workerSocket.destroy();
+        });
+
+        workerSocket.on("close", () => {
+          socket.destroy();
+        });
+      });
+
+      workerSocket.on("error", (err) => {
+        log.error(`Failed to connect to worker ${workerIndex}:`, err);
+        socket.destroy();
+      });
+
+      return;
+    }
+
+    // Unknown path - destroy socket
+    socket.destroy();
+  });
 }
 
 app.get("/api/env", async (req, res) => {
@@ -230,6 +312,73 @@ app.get("/api/env", async (req, res) => {
 // Add lobbies endpoint to list public games for this worker
 app.get("/api/public_lobbies", async (req, res) => {
   res.json(publicLobbiesData);
+});
+
+// Worker proxy - routes /w{N}/* requests to the appropriate worker
+// This is needed when nginx is not present (e.g., Railway deployments)
+app.use(/^\/w(\d+)\/(.*)$/, async (req, res) => {
+  const match = req.path.match(/^\/w(\d+)\/(.*)$/);
+  if (!match) {
+    return res.status(400).send("Invalid worker path");
+  }
+
+  const workerIndex = parseInt(match[1], 10);
+  const remainingPath = "/" + match[2];
+
+  // Validate worker index
+  if (workerIndex < 0 || workerIndex >= config.numWorkers()) {
+    log.warn(
+      `Invalid worker index ${workerIndex}, numWorkers=${config.numWorkers()}`,
+    );
+    return res.status(404).send("Worker not found");
+  }
+
+  const workerPort = config.workerPortByIndex(workerIndex);
+  const targetUrl = `http://localhost:${workerPort}${remainingPath}`;
+
+  try {
+    // Build query string
+    const queryString = new URLSearchParams(
+      req.query as Record<string, string>,
+    ).toString();
+    const fullUrl = queryString ? `${targetUrl}?${queryString}` : targetUrl;
+
+    // Prepare fetch options
+    const fetchOptions: RequestInit = {
+      method: req.method,
+      headers: {
+        "Content-Type": req.get("Content-Type") || "application/json",
+        [config.adminHeader()]: config.adminToken(),
+      },
+    };
+
+    // Add body for non-GET requests
+    if (req.method !== "GET" && req.method !== "HEAD" && req.body) {
+      fetchOptions.body = JSON.stringify(req.body);
+    }
+
+    const response = await fetch(fullUrl, fetchOptions);
+
+    // Copy response status and headers
+    res.status(response.status);
+
+    // Forward response body
+    const contentType = response.headers.get("Content-Type");
+    if (contentType) {
+      res.set("Content-Type", contentType);
+    }
+
+    if (contentType?.includes("application/json")) {
+      const json = await response.json();
+      res.json(json);
+    } else {
+      const text = await response.text();
+      res.send(text);
+    }
+  } catch (error) {
+    log.error(`Error proxying to worker ${workerIndex}:`, error);
+    res.status(502).send("Worker proxy error");
+  }
 });
 
 async function fetchLobbies(): Promise<number> {
