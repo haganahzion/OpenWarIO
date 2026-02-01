@@ -107,7 +107,8 @@ export async function startMaster() {
   log.info(`Setting up ${config.numWorkers()} workers...`);
 
   // Setup WebSocket server for clients
-  const wss = new WebSocketServer({ server, path: "/lobbies" });
+  // Use noServer: true so we can manually handle upgrades for both /lobbies and worker paths
+  const wss = new WebSocketServer({ noServer: true });
 
   wss.on("connection", (ws: WebSocket) => {
     connectedClients.add(ws);
@@ -219,6 +220,9 @@ export async function startMaster() {
 
   // WebSocket proxy for worker paths /w{N}
   // This handles game WebSocket connections when nginx is not present
+  // Also handles for /lobbies path
+  const workerWss = new WebSocketServer({ noServer: true });
+
   server.on("upgrade", (request, socket, head) => {
     const url = request.url || "";
 
@@ -230,7 +234,7 @@ export async function startMaster() {
       return;
     }
 
-    // Handle /w{N} paths - proxy to worker using raw TCP socket
+    // Handle /w{N} paths - proxy to worker using WebSocket relay
     const workerMatch = url.match(/^\/w(\d+)$/);
     if (workerMatch) {
       const workerIndex = parseInt(workerMatch[1], 10);
@@ -243,53 +247,75 @@ export async function startMaster() {
 
       const workerPort = config.workerPortByIndex(workerIndex);
 
-      // Create raw TCP connection to worker
-      const net = require("net") as typeof import("net");
-      const workerSocket = net.connect(workerPort, "127.0.0.1", () => {
-        // Forward the original HTTP upgrade request to worker
-        const headers = Object.entries(request.headers)
-          .filter(([key]) => key.toLowerCase() !== "host")
-          .map(([key, value]) => `${key}: ${value}`)
-          .join("\r\n");
-
-        const upgradeRequest =
-          `${request.method} / HTTP/1.1\r\n` +
-          `Host: localhost:${workerPort}\r\n` +
-          `X-Forwarded-For: ${request.headers["x-forwarded-for"] || request.socket.remoteAddress || ""}\r\n` +
-          `X-Real-IP: ${request.headers["x-real-ip"] || request.socket.remoteAddress || ""}\r\n` +
-          `${headers}\r\n\r\n`;
-
-        workerSocket.write(upgradeRequest);
-        if (head.length > 0) {
-          workerSocket.write(head);
-        }
-
-        // Pipe data bidirectionally
-        socket.pipe(workerSocket);
-        workerSocket.pipe(socket);
-
-        socket.on("error", (err) => {
-          log.error("WebSocket proxy client error:", err);
-          workerSocket.destroy();
+      // First, accept the client's WebSocket connection
+      workerWss.handleUpgrade(request, socket, head, (clientWs) => {
+        // Now create a WebSocket connection to the worker
+        const workerWsUrl = `ws://127.0.0.1:${workerPort}/`;
+        const workerWs = new WebSocket(workerWsUrl, {
+          headers: {
+            "X-Forwarded-For":
+              (request.headers["x-forwarded-for"] as string) ||
+              request.socket.remoteAddress ||
+              "",
+            "X-Real-IP":
+              (request.headers["x-real-ip"] as string) ||
+              request.socket.remoteAddress ||
+              "",
+          },
         });
 
-        workerSocket.on("error", (err) => {
-          log.error("WebSocket proxy worker error:", err);
-          socket.destroy();
+        let workerConnected = false;
+        const pendingMessages: Buffer[] = [];
+
+        workerWs.on("open", () => {
+          workerConnected = true;
+          // Send any pending messages
+          for (const msg of pendingMessages) {
+            workerWs.send(msg);
+          }
+          pendingMessages.length = 0;
         });
 
-        socket.on("close", () => {
-          workerSocket.destroy();
+        workerWs.on("message", (data: Buffer) => {
+          if (clientWs.readyState === WebSocket.OPEN) {
+            clientWs.send(data);
+          }
         });
 
-        workerSocket.on("close", () => {
-          socket.destroy();
+        workerWs.on("close", (code, reason) => {
+          if (clientWs.readyState === WebSocket.OPEN) {
+            clientWs.close(code, reason.toString());
+          }
         });
-      });
 
-      workerSocket.on("error", (err) => {
-        log.error(`Failed to connect to worker ${workerIndex}:`, err);
-        socket.destroy();
+        workerWs.on("error", (err) => {
+          log.error(`Worker WebSocket error (worker ${workerIndex}):`, err);
+          if (clientWs.readyState === WebSocket.OPEN) {
+            clientWs.close(1011, "Worker connection error");
+          }
+        });
+
+        clientWs.on("message", (data: Buffer) => {
+          if (workerConnected && workerWs.readyState === WebSocket.OPEN) {
+            workerWs.send(data);
+          } else {
+            // Queue message until worker is connected
+            pendingMessages.push(data);
+          }
+        });
+
+        clientWs.on("close", (code, reason) => {
+          if (workerWs.readyState === WebSocket.OPEN) {
+            workerWs.close(code, reason.toString());
+          }
+        });
+
+        clientWs.on("error", (err) => {
+          log.error(`Client WebSocket error:`, err);
+          if (workerWs.readyState === WebSocket.OPEN) {
+            workerWs.close(1011, "Client connection error");
+          }
+        });
       });
 
       return;
