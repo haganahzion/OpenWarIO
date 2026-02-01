@@ -1,11 +1,33 @@
 import { UserSettings } from "../game/UserSettings";
 import { GameConfig } from "../Schemas";
 import { Config, GameEnv, ServerConfig } from "./Config";
-import { DefaultConfig } from "./DefaultConfig";
+import { DefaultConfig, DefaultServerConfig } from "./DefaultConfig";
 import { DevConfig, DevServerConfig } from "./DevConfig";
 import { Env } from "./Env";
 import { preprodConfig } from "./PreprodConfig";
 import { prodConfig } from "./ProdConfig";
+
+// Dynamic server config that uses num_workers from the API response
+class DynamicServerConfig extends DefaultServerConfig {
+  constructor(
+    private _numWorkers: number,
+    private _env: GameEnv,
+  ) {
+    super();
+  }
+  numWorkers(): number {
+    return this._numWorkers;
+  }
+  env(): GameEnv {
+    return this._env;
+  }
+  jwtAudience(): string {
+    return "openfront.io";
+  }
+  turnstileSiteKey(): string {
+    return "0x4AAAAAACFLkaecN39lS8sk";
+  }
+}
 
 export let cachedSC: ServerConfig | null = null;
 
@@ -41,7 +63,15 @@ export async function getServerConfigFromClient(): Promise<ServerConfig> {
   // Log the retrieved configuration
   console.log("Server config loaded:", config);
 
-  cachedSC = getServerConfig(config.game_env);
+  // Use num_workers from server if provided (for Railway/single-worker deployments)
+  if (config.num_workers !== undefined) {
+    const gameEnv = config.game_env === "prod" ? GameEnv.Prod :
+                    config.game_env === "staging" ? GameEnv.Preprod :
+                    GameEnv.Dev;
+    cachedSC = new DynamicServerConfig(config.num_workers, gameEnv);
+  } else {
+    cachedSC = getServerConfig(config.game_env);
+  }
   return cachedSC;
 }
 export function getServerConfigFromServer(): ServerConfig {
