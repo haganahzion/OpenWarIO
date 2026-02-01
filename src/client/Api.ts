@@ -129,6 +129,12 @@ export function getApiBase() {
 
 export function getAudience() {
   const { hostname } = new URL(window.location.href);
+
+  // Handle Railway deployments - use openfront.io as the audience
+  if (hostname.endsWith(".railway.app")) {
+    return "openfront.io";
+  }
+
   const domainname = hostname.split(".").slice(-2).join(".");
   return domainname;
 }
