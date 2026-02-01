@@ -39,6 +39,7 @@ import {
 import { endGame, startGame, startTime } from "./LocalPersistantStats";
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 import {
+  SendAdminIntentEvent,
   SendAttackIntentEvent,
   SendBoatAttackIntentEvent,
   SendHashEvent,
@@ -343,6 +344,9 @@ export class ClientGameRunner {
       DoGroundAttackEvent,
       this.doGroundAttackUnderCursor.bind(this),
     );
+
+    // Listen for admin commands from the settings UI
+    window.addEventListener("admin-command", this.onAdminCommand.bind(this));
 
     this.renderer.initialize();
     this.input.initialize();
@@ -753,6 +757,31 @@ export class ClientGameRunner {
       );
       this.lastMessageTime = now;
       this.transport.reconnect();
+    }
+  }
+
+  private onAdminCommand(event: Event) {
+    const customEvent = event as CustomEvent<{
+      type: "unlock-all-research" | "add-gold" | "add-troops";
+      amount?: number;
+    }>;
+    const { type, amount } = customEvent.detail;
+
+    if (!this.myPlayer?.isAlive()) {
+      console.warn("Admin command failed: player not alive");
+      return;
+    }
+
+    switch (type) {
+      case "unlock-all-research":
+        this.eventBus.emit(new SendAdminIntentEvent("unlock_research"));
+        break;
+      case "add-gold":
+        this.eventBus.emit(new SendAdminIntentEvent("add_gold", amount));
+        break;
+      case "add-troops":
+        this.eventBus.emit(new SendAdminIntentEvent("add_troops", amount));
+        break;
     }
   }
 }

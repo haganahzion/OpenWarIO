@@ -190,6 +190,13 @@ export class SendParatrooperIntentEvent implements GameEvent {
   ) {}
 }
 
+export class SendAdminIntentEvent implements GameEvent {
+  constructor(
+    public readonly action: "unlock_research" | "add_gold" | "add_troops",
+    public readonly amount?: number,
+  ) {}
+}
+
 export class Transport {
   private socket: WebSocket | null = null;
 
@@ -284,6 +291,9 @@ export class Transport {
     );
     this.eventBus.on(SendParatrooperIntentEvent, (e) =>
       this.onSendParatrooperIntent(e),
+    );
+    this.eventBus.on(SendAdminIntentEvent, (e) =>
+      this.onSendAdminIntent(e),
     );
   }
 
@@ -704,6 +714,15 @@ export class Transport {
       clientID: this.lobbyConfig.clientID,
       dst: event.dst,
       troops: event.troops,
+    });
+  }
+
+  private onSendAdminIntent(event: SendAdminIntentEvent) {
+    this.sendIntent({
+      type: "admin",
+      clientID: this.lobbyConfig.clientID,
+      action: event.action,
+      amount: event.amount,
     });
   }
 

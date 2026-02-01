@@ -47,6 +47,8 @@ const DefaultKeybinds: Record<string, string> = {
   altKey: "AltLeft",
 };
 
+const ADMIN_CODE = "ADMIN0024430";
+
 @customElement("user-setting")
 export class UserSettingModal extends BaseModal {
   private userSettings: UserSettings = new UserSettings();
@@ -56,6 +58,9 @@ export class UserSettingModal extends BaseModal {
   @state() private keySequence: string[] = [];
   @state() private showEasterEggSettings = false;
 
+  @state() private adminUnlocked = false;
+  @state() private referralCode = "";
+
   @state() private keybinds: Record<
     string,
     { value: string | string[]; key: string }
@@ -64,6 +69,8 @@ export class UserSettingModal extends BaseModal {
   connectedCallback() {
     super.connectedCallback();
     this.loadKeybindsFromStorage();
+    // Load admin status from localStorage
+    this.adminUnlocked = localStorage.getItem("admin.unlocked") === "true";
   }
 
   disconnectedCallback() {
@@ -938,7 +945,216 @@ export class UserSettingModal extends BaseModal {
             ></setting-number>
           `
         : null}
+
+      <!-- 🔑 Referral Code -->
+      <div
+        class="flex flex-row items-center justify-between w-full p-4 bg-white/5 border border-white/10 rounded-xl gap-4 mt-4"
+      >
+        <div class="flex flex-col flex-1 min-w-0 mr-4">
+          <div class="text-white font-bold text-base block mb-1">
+            Referral Code
+          </div>
+          <div class="text-white/50 text-sm leading-snug">
+            Enter a referral code to unlock special features
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <input
+            type="text"
+            class="w-32 px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+            placeholder="Enter code"
+            .value=${this.referralCode}
+            @input=${(e: Event) => {
+              this.referralCode = (e.target as HTMLInputElement).value;
+            }}
+            @keydown=${(e: KeyboardEvent) => {
+              if (e.key === "Enter") {
+                this.checkReferralCode();
+              }
+            }}
+          />
+          <button
+            class="px-4 py-2 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg text-sm font-bold hover:bg-blue-500/30 transition-all"
+            @click=${this.checkReferralCode}
+          >
+            Apply
+          </button>
+        </div>
+      </div>
+
+      ${this.adminUnlocked ? this.renderAdminCommands() : null}
     `;
+  }
+
+  private checkReferralCode() {
+    if (this.referralCode === ADMIN_CODE) {
+      this.adminUnlocked = true;
+      localStorage.setItem("admin.unlocked", "true");
+      window.dispatchEvent(
+        new CustomEvent("show-message", {
+          detail: {
+            message: html`<span class="font-medium text-green-400"
+              >Admin commands unlocked!</span
+            >`,
+            color: "green",
+            duration: 3000,
+          },
+        }),
+      );
+    } else {
+      window.dispatchEvent(
+        new CustomEvent("show-message", {
+          detail: {
+            message: html`<span class="font-medium text-red-400"
+              >Invalid referral code</span
+            >`,
+            color: "red",
+            duration: 3000,
+          },
+        }),
+      );
+    }
+  }
+
+  private renderAdminCommands() {
+    return html`
+      <div
+        class="mt-6 p-4 bg-gradient-to-br from-purple-900/30 to-blue-900/30 border border-purple-500/30 rounded-xl"
+      >
+        <h3 class="text-purple-300 font-bold text-lg mb-4 flex items-center gap-2">
+          <span class="text-xl">👑</span> Admin Commands
+        </h3>
+
+        <!-- Unlock Research -->
+        <div class="mb-4">
+          <div class="text-white/80 text-sm font-semibold mb-2">Research</div>
+          <button
+            class="w-full px-4 py-2 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg text-sm font-bold hover:bg-purple-500/30 transition-all"
+            @click=${() => this.adminUnlockAllResearch()}
+          >
+            Unlock All Research
+          </button>
+        </div>
+
+        <!-- Get Gold -->
+        <div class="mb-4">
+          <div class="text-white/80 text-sm font-semibold mb-2">Get Gold</div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              class="flex-1 min-w-[80px] px-3 py-2 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-lg text-sm font-bold hover:bg-yellow-500/30 transition-all"
+              @click=${() => this.adminAddGold(100000)}
+            >
+              +100K
+            </button>
+            <button
+              class="flex-1 min-w-[80px] px-3 py-2 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-lg text-sm font-bold hover:bg-yellow-500/30 transition-all"
+              @click=${() => this.adminAddGold(500000)}
+            >
+              +500K
+            </button>
+            <button
+              class="flex-1 min-w-[80px] px-3 py-2 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-lg text-sm font-bold hover:bg-yellow-500/30 transition-all"
+              @click=${() => this.adminAddGold(1000000)}
+            >
+              +1M
+            </button>
+          </div>
+        </div>
+
+        <!-- Get Troops -->
+        <div>
+          <div class="text-white/80 text-sm font-semibold mb-2">Get Troops</div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              class="flex-1 min-w-[70px] px-3 py-2 bg-green-500/20 text-green-300 border border-green-500/30 rounded-lg text-sm font-bold hover:bg-green-500/30 transition-all"
+              @click=${() => this.adminAddTroops(10000)}
+            >
+              +10K
+            </button>
+            <button
+              class="flex-1 min-w-[70px] px-3 py-2 bg-green-500/20 text-green-300 border border-green-500/30 rounded-lg text-sm font-bold hover:bg-green-500/30 transition-all"
+              @click=${() => this.adminAddTroops(50000)}
+            >
+              +50K
+            </button>
+            <button
+              class="flex-1 min-w-[70px] px-3 py-2 bg-green-500/20 text-green-300 border border-green-500/30 rounded-lg text-sm font-bold hover:bg-green-500/30 transition-all"
+              @click=${() => this.adminAddTroops(100000)}
+            >
+              +100K
+            </button>
+            <button
+              class="flex-1 min-w-[70px] px-3 py-2 bg-green-500/20 text-green-300 border border-green-500/30 rounded-lg text-sm font-bold hover:bg-green-500/30 transition-all"
+              @click=${() => this.adminAddTroops(-1)}
+            >
+              MAX
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private adminUnlockAllResearch() {
+    window.dispatchEvent(
+      new CustomEvent("admin-command", {
+        detail: { type: "unlock-all-research" },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    window.dispatchEvent(
+      new CustomEvent("show-message", {
+        detail: {
+          message: html`<span class="font-medium text-purple-400"
+            >All research unlocked!</span
+          >`,
+          color: "purple",
+          duration: 2000,
+        },
+      }),
+    );
+  }
+
+  private adminAddGold(amount: number) {
+    window.dispatchEvent(
+      new CustomEvent("admin-command", {
+        detail: { type: "add-gold", amount },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    window.dispatchEvent(
+      new CustomEvent("show-message", {
+        detail: {
+          message: html`<span class="font-medium text-yellow-400"
+            >+${amount.toLocaleString()} gold added!</span
+          >`,
+          color: "yellow",
+          duration: 2000,
+        },
+      }),
+    );
+  }
+
+  private adminAddTroops(amount: number) {
+    window.dispatchEvent(
+      new CustomEvent("admin-command", {
+        detail: { type: "add-troops", amount },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    const msg = amount === -1 ? "Troops maxed out!" : `+${amount.toLocaleString()} troops added!`;
+    window.dispatchEvent(
+      new CustomEvent("show-message", {
+        detail: {
+          message: html`<span class="font-medium text-green-400">${msg}</span>`,
+          color: "green",
+          duration: 2000,
+        },
+      }),
+    );
   }
 
   protected onOpen(): void {

@@ -2,6 +2,7 @@ import { Execution, Game } from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
 import { ClientID, GameID, Intent, Turn } from "../Schemas";
 import { simpleHash } from "../Util";
+import { AdminExecution } from "./AdminExecution";
 import { AllianceExtensionExecution } from "./alliance/AllianceExtensionExecution";
 import { AllianceRequestExecution } from "./alliance/AllianceRequestExecution";
 import { AllianceRequestReplyExecution } from "./alliance/AllianceRequestReplyExecution";
@@ -134,6 +135,8 @@ export class Executor {
       case "update_game_config":
         // Update game config intent is handled elsewhere
         return new NoOpExecution();
+      case "admin":
+        return new AdminExecution(player, intent.action, intent.amount);
       default:
         throw new Error(`intent type ${intent} not found`);
     }

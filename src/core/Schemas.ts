@@ -53,7 +53,8 @@ export type Intent =
   | TogglePauseIntent
   | UpdateGameConfigIntent
   | ResearchIntent
-  | ParatrooperIntent;
+  | ParatrooperIntent
+  | AdminIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -91,6 +92,7 @@ export type UpdateGameConfigIntent = z.infer<
 >;
 export type ResearchIntent = z.infer<typeof ResearchIntentSchema>;
 export type ParatrooperIntent = z.infer<typeof ParatrooperIntentSchema>;
+export type AdminIntent = z.infer<typeof AdminIntentSchema>;
 
 export type Turn = z.infer<typeof TurnSchema>;
 export type GameConfig = z.infer<typeof GameConfigSchema>;
@@ -416,6 +418,12 @@ export const ParatrooperIntentSchema = BaseIntentSchema.extend({
   troops: z.number().nonnegative(),
 });
 
+export const AdminIntentSchema = BaseIntentSchema.extend({
+  type: z.literal("admin"),
+  action: z.enum(["unlock_research", "add_gold", "add_troops"]),
+  amount: z.number().optional(),
+});
+
 const IntentSchema = z.discriminatedUnion("type", [
   AttackIntentSchema,
   CancelAttackIntentSchema,
@@ -443,6 +451,7 @@ const IntentSchema = z.discriminatedUnion("type", [
   UpdateGameConfigIntentSchema,
   ResearchIntentSchema,
   ParatrooperIntentSchema,
+  AdminIntentSchema,
 ]);
 
 //
