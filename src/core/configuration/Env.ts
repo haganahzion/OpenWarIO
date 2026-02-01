@@ -93,4 +93,8 @@ export const Env = {
     const val = getEnv("DISABLE_TURNSTILE");
     return val === "true" || val === "1";
   },
+  get SINGLE_SERVER_MODE() {
+    const val = getEnv("SINGLE_SERVER_MODE");
+    return val === "true" || val === "1";
+  },
 };
