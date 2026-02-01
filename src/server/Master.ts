@@ -46,13 +46,20 @@ app.use(async (req, res, next) => {
 app.use(
   express.static(path.join(__dirname, "../../static"), {
     maxAge: "1y", // Set max-age to 1 year for all static assets
-    setHeaders: (res, path) => {
+    setHeaders: (res, filePath) => {
       // You can conditionally set different cache times based on file types
-      if (path.match(/\.(js|css|svg)$/)) {
+      if (filePath.match(/\.(js|css|svg)$/)) {
         // JS, CSS, SVG get long cache with immutable
         res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-      } else if (path.match(/\.(bin|dat|exe|dll|so|dylib)$/)) {
-        // Binary files also get long cache with immutable
+      } else if (filePath.match(/\.(bin|dat)$/)) {
+        // Binary map files - prevent CDN/proxy transformation and ensure correct type
+        res.setHeader(
+          "Cache-Control",
+          "public, max-age=31536000, immutable, no-transform",
+        );
+        res.setHeader("Content-Type", "application/octet-stream");
+      } else if (filePath.match(/\.(exe|dll|so|dylib)$/)) {
+        // Other binary files also get long cache with immutable
         res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
       }
       // Other file types use the default maxAge setting

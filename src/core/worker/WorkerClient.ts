@@ -59,11 +59,20 @@ export class WorkerClient {
   initialize(): Promise<void> {
     return new Promise((resolve, reject) => {
       const messageId = generateID();
+      let resolved = false;
 
       this.messageHandlers.set(messageId, (message) => {
+        if (resolved) return;
+
         if (message.type === "initialized") {
+          resolved = true;
           this.isInitialized = true;
           resolve();
+        } else if (message.type === "init_error") {
+          resolved = true;
+          const errorMsg =
+            (message as any).error || "Unknown initialization error";
+          reject(new Error(`Game initialization failed: ${errorMsg}`));
         }
       });
 
@@ -76,7 +85,8 @@ export class WorkerClient {
 
       // Add timeout for initialization
       setTimeout(() => {
-        if (!this.isInitialized) {
+        if (!resolved && !this.isInitialized) {
+          resolved = true;
           this.messageHandlers.delete(messageId);
           reject(new Error("Worker initialization timeout"));
         }
