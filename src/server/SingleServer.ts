@@ -170,16 +170,34 @@ export async function startSingleServer() {
           return;
         }
 
-        // Verify token
-        const result = await verifyClientToken(clientMsg.token, config);
+        // In single server mode, be lenient with token verification
+        // Allow anonymous users for private games with friends
+        let persistentId: string;
+        let claims: any = null;
+        let roles: string[] | undefined;
+        let flares: string[] | undefined;
 
-        if (result.type === "error") {
-          log.warn(`Invalid token: ${result.message}`);
-          ws.close(1002, `Unauthorized: invalid token`);
-          return;
+        const tokenResult = await verifyClientToken(clientMsg.token, config);
+        if (tokenResult.type === "success") {
+          persistentId = tokenResult.persistentId;
+          claims = tokenResult.claims;
+
+          // If user has claims, try to get their roles/flares
+          if (claims !== null) {
+            const meResult = await getUserMe(clientMsg.token, config);
+            if (meResult.type === "success") {
+              roles = meResult.response.player.roles;
+              flares = meResult.response.player.flares;
+            }
+          }
+        } else {
+          // Token verification failed - allow as anonymous user in single server mode
+          // Use clientID as persistent ID for anonymous users
+          log.info(
+            `Allowing anonymous user ${clientMsg.clientID} (token error: ${tokenResult.message})`,
+          );
+          persistentId = clientMsg.clientID;
         }
-
-        const { persistentId, claims } = result;
 
         if (clientMsg.type === "rejoin") {
           const wasFound = gm.rejoinClient(ws, persistentId, clientMsg);
@@ -189,33 +207,21 @@ export async function startSingleServer() {
           return;
         }
 
-        // Handle join
-        let roles: string[] | undefined;
-        let flares: string[] | undefined;
-
+        // Check allowed flares only if configured
         const allowedFlares = config.allowedFlares();
-        if (claims === null) {
-          if (allowedFlares !== undefined) {
-            ws.close(1002, "Unauthorized");
-            return;
-          }
-        } else {
-          const meResult = await getUserMe(clientMsg.token, config);
-          if (meResult.type === "error") {
-            ws.close(1002, "Unauthorized");
-            return;
-          }
-          roles = meResult.response.player.roles;
-          flares = meResult.response.player.flares;
+        if (allowedFlares !== undefined && claims === null) {
+          // Anonymous users not allowed when flares are required
+          ws.close(1002, "Unauthorized");
+          return;
+        }
 
-          if (allowedFlares !== undefined) {
-            const allowed =
-              allowedFlares.length === 0 ||
-              allowedFlares.some((f) => flares?.includes(f));
-            if (!allowed) {
-              ws.close(1002, "Forbidden");
-              return;
-            }
+        if (allowedFlares !== undefined && claims !== null) {
+          const allowed =
+            allowedFlares.length === 0 ||
+            allowedFlares.some((f) => flares?.includes(f));
+          if (!allowed) {
+            ws.close(1002, "Forbidden");
+            return;
           }
         }
 
