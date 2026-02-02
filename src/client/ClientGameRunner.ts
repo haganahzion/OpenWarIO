@@ -767,17 +767,20 @@ export class ClientGameRunner {
     }>;
     const { type, amount } = customEvent.detail;
 
-    // Get player - use gameView to find current player
-    const myPlayer = this.gameView?.myPlayer();
-    if (!myPlayer) {
-      // Debug: log all available players
-      const allPlayers = this.gameView?.players() || [];
-      const playerInfo = allPlayers.map(p => `${p.name()}:${p.clientID()}`).join(", ");
-      console.warn(`[ClientGameRunner] Admin command failed: no myPlayer. myClientID=${this.gameView?.myClientID()}, lobbyClientID=${this.lobby.clientID}, allPlayers=[${playerInfo}]`);
-      return;
+    // Get player using same pattern as other methods
+    if (this.myPlayer === null) {
+      const myPlayer = this.gameView.playerByClientID(this.lobby.clientID);
+      if (myPlayer === null) {
+        // Debug: log all available players
+        const allPlayers = this.gameView?.players() || [];
+        const playerInfo = allPlayers.map(p => `${p.name()}:${p.clientID()}`).join(", ");
+        console.warn(`[ClientGameRunner] Admin command failed: player not found. lobbyClientID=${this.lobby.clientID}, allPlayers=[${playerInfo}]`);
+        return;
+      }
+      this.myPlayer = myPlayer;
     }
 
-    console.log(`[ClientGameRunner] Admin command: ${type}, amount: ${amount}, player: ${myPlayer.name()}, myPlayerClientID: ${myPlayer.clientID()}, lobbyClientID: ${this.lobby.clientID}`);
+    console.log(`[ClientGameRunner] Admin command: ${type}, amount: ${amount}, player: ${this.myPlayer.name()}, clientID: ${this.lobby.clientID}`);
 
     switch (type) {
       case "unlock-all-research":
