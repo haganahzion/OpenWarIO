@@ -54,12 +54,16 @@ export class AdminExecution implements Execution {
 
       case "add_gold":
         if (this.amount !== undefined) {
+          const goldBefore = this.player.gold();
           this.player.addGold(BigInt(this.amount));
+          const goldAfter = this.player.gold();
+          console.log(`[AdminExecution] add_gold: before=${goldBefore}, added=${this.amount}, after=${goldAfter}`);
         }
         break;
 
       case "add_troops":
         if (this.amount !== undefined) {
+          const troopsBefore = this.player.troops();
           if (this.amount === -1) {
             // MAX troops - fill to max population
             const currentTroops = this.player.troops();
@@ -68,6 +72,7 @@ export class AdminExecution implements Execution {
             if (toAdd > 0) {
               this.player.addTroops(toAdd);
             }
+            console.log(`[AdminExecution] add_troops MAX: before=${troopsBefore}, max=${maxTroops}, added=${toAdd}, after=${this.player.troops()}`);
           } else {
             // Add specific amount, but cap at max
             const currentTroops = this.player.troops();
@@ -77,6 +82,7 @@ export class AdminExecution implements Execution {
             if (toAdd > 0) {
               this.player.addTroops(toAdd);
             }
+            console.log(`[AdminExecution] add_troops: before=${troopsBefore}, requested=${this.amount}, added=${toAdd}, after=${this.player.troops()}`);
           }
         }
         break;

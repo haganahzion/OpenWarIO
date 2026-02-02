@@ -52,7 +52,10 @@ export class Executor {
   createExec(intent: Intent): Execution {
     const player = this.mg.playerByClientID(intent.clientID);
     if (!player) {
-      console.warn(`player with clientID ${intent.clientID} not found`);
+      // Debug: log all players to see what clientIDs exist
+      const allPlayers = this.mg.players();
+      const playerClientIDs = allPlayers.map(p => `${p.name()}:${p.clientID()}`).join(", ");
+      console.warn(`[ExecutionManager] player with clientID ${intent.clientID} not found. Intent type: ${intent.type}. All players: [${playerClientIDs}]`);
       return new NoOpExecution();
     }
 

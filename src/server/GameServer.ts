@@ -446,6 +446,9 @@ export class GameServer {
               default: {
                 // Don't process intents while game is paused
                 if (!this.isPaused) {
+                  if (clientMsg.intent.type === "admin") {
+                    this.log.info(`[GameServer] Received admin intent: action=${clientMsg.intent.action}, amount=${clientMsg.intent.amount}, clientID=${clientMsg.intent.clientID}`);
+                  }
                   this.addIntent(clientMsg.intent);
                 }
                 break;
