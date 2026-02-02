@@ -83,14 +83,14 @@ export class WorkerClient {
         clientID: this.clientID,
       });
 
-      // Add timeout for initialization
+      // Add timeout for initialization (30s for slow connections/proxies)
       setTimeout(() => {
         if (!resolved && !this.isInitialized) {
           resolved = true;
           this.messageHandlers.delete(messageId);
           reject(new Error("Worker initialization timeout"));
         }
-      }, 5000); // 5 second timeout
+      }, 30000); // 30 second timeout for slow proxies
     });
   }
 

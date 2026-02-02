@@ -24,6 +24,8 @@ export class AdminExecution implements Execution {
   tick(ticks: number): void {
     if (!this.active) return;
 
+    console.log(`[AdminExecution] Executing action=${this.action}, amount=${this.amount}, player=${this.player.name()}`);
+
     switch (this.action) {
       case "unlock_research":
         // Unlock all research for the player by directly accessing internal state
@@ -88,6 +90,6 @@ export class AdminExecution implements Execution {
   }
 
   activeDuringSpawnPhase(): boolean {
-    return true;
+    return false;
   }
 }

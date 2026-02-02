@@ -718,6 +718,7 @@ export class Transport {
   }
 
   private onSendAdminIntent(event: SendAdminIntentEvent) {
+    console.log(`[Transport] Sending admin intent: action=${event.action}, amount=${event.amount}, clientID=${this.lobbyConfig.clientID}`);
     this.sendIntent({
       type: "admin",
       clientID: this.lobbyConfig.clientID,

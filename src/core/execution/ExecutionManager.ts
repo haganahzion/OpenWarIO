@@ -136,6 +136,7 @@ export class Executor {
         // Update game config intent is handled elsewhere
         return new NoOpExecution();
       case "admin":
+        console.log(`[ExecutionManager] Creating AdminExecution: player=${player.name()}, action=${intent.action}, amount=${intent.amount}`);
         return new AdminExecution(player, intent.action, intent.amount);
       default:
         throw new Error(`intent type ${intent} not found`);
