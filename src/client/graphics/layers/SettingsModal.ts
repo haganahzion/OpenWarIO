@@ -186,6 +186,7 @@ export class SettingsModal extends LitElement implements Layer {
   }
 
   private adminUnlockAllResearch() {
+    console.log("[SettingsModal] Unlock All Research clicked");
     window.dispatchEvent(
       new CustomEvent("admin-command", {
         detail: { type: "unlock-all-research" },
@@ -196,6 +197,7 @@ export class SettingsModal extends LitElement implements Layer {
   }
 
   private adminAddGold(amount: number) {
+    console.log(`[SettingsModal] Add Gold clicked: ${amount}`);
     window.dispatchEvent(
       new CustomEvent("admin-command", {
         detail: { type: "add-gold", amount },
@@ -206,6 +208,7 @@ export class SettingsModal extends LitElement implements Layer {
   }
 
   private adminAddTroops(amount: number) {
+    console.log(`[SettingsModal] Add Troops clicked: ${amount}`);
     window.dispatchEvent(
       new CustomEvent("admin-command", {
         detail: { type: "add-troops", amount },

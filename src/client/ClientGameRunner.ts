@@ -761,6 +761,7 @@ export class ClientGameRunner {
   }
 
   private onAdminCommand(event: Event) {
+    console.log("[ClientGameRunner] Admin command event received!");
     const customEvent = event as CustomEvent<{
       type: "unlock-all-research" | "add-gold" | "add-troops";
       amount?: number;
