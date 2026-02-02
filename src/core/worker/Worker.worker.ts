@@ -84,6 +84,12 @@ ctx.addEventListener("message", async (e: MessageEvent<MainThreadMessage>) => {
 
       try {
         const gr = await gameRunner;
+        // Log turn info including any admin intents
+        const adminIntents = message.turn.intents.filter((i: any) => i.type === "admin");
+        if (adminIntents.length > 0) {
+          console.log(`[Worker] Turn ${message.turn.turnNumber} has ${adminIntents.length} admin intent(s):`, adminIntents);
+        }
+        console.log(`[Worker] Processing turn ${message.turn.turnNumber} with ${message.turn.intents.length} intent(s)`);
         await gr.addTurn(message.turn);
       } catch (error) {
         console.error("Failed to process turn:", error);
