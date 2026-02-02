@@ -770,11 +770,14 @@ export class ClientGameRunner {
     // Get player - use gameView to find current player
     const myPlayer = this.gameView?.myPlayer();
     if (!myPlayer) {
-      console.warn("[ClientGameRunner] Admin command failed: no player found in gameView");
+      // Debug: log all available players
+      const allPlayers = this.gameView?.players() || [];
+      const playerInfo = allPlayers.map(p => `${p.name()}:${p.clientID()}`).join(", ");
+      console.warn(`[ClientGameRunner] Admin command failed: no myPlayer. myClientID=${this.gameView?.myClientID()}, lobbyClientID=${this.lobby.clientID}, allPlayers=[${playerInfo}]`);
       return;
     }
 
-    console.log(`[ClientGameRunner] Admin command: ${type}, amount: ${amount}, player: ${myPlayer.name()}, clientID: ${myPlayer.clientID()}, lobbyClientID: ${this.lobby.clientID}`);
+    console.log(`[ClientGameRunner] Admin command: ${type}, amount: ${amount}, player: ${myPlayer.name()}, myPlayerClientID: ${myPlayer.clientID()}, lobbyClientID: ${this.lobby.clientID}`);
 
     switch (type) {
       case "unlock-all-research":
