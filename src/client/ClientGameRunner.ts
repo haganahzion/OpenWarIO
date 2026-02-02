@@ -767,10 +767,14 @@ export class ClientGameRunner {
     }>;
     const { type, amount } = customEvent.detail;
 
-    if (!this.myPlayer?.isAlive()) {
-      console.warn("Admin command failed: player not alive");
+    // Get player - use gameView to find current player
+    const myPlayer = this.gameView?.myPlayer();
+    if (!myPlayer) {
+      console.warn("Admin command failed: no player found");
       return;
     }
+
+    console.log(`Admin command: ${type}, amount: ${amount}, player: ${myPlayer.name()}`);
 
     switch (type) {
       case "unlock-all-research":

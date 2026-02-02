@@ -88,6 +88,6 @@ export class AdminExecution implements Execution {
   }
 
   activeDuringSpawnPhase(): boolean {
-    return false;
+    return true;
   }
 }

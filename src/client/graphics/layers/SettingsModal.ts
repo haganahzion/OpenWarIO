@@ -540,14 +540,14 @@ export class SettingsModal extends LitElement implements Layer {
               </div>
             </button>
 
-            <!-- Admin Code Input -->
+            <!-- Referral Code Input -->
             <div class="border-t border-slate-600 pt-3 mt-4">
               <div
                 class="flex gap-3 items-center w-full p-3 text-white"
               >
                 <div class="flex-1">
-                  <div class="font-medium">Admin Code</div>
-                  <div class="text-sm text-slate-400">Enter code to unlock admin commands</div>
+                  <div class="font-medium">Referral Code</div>
+                  <div class="text-sm text-slate-400">Enter code to unlock special features</div>
                 </div>
                 <input
                   type="text"
