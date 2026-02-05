@@ -109,8 +109,18 @@ export async function startSingleServer() {
                req.socket.remoteAddress ||
                "unknown";
 
-    // Handler for join/rejoin only - removed after successful join
-    const joinHandler = (data: WebSocket.RawData) => {
+    // Track whether this connection has joined a game
+    // After join, GameServer handles all messages
+    let hasJoined = false;
+
+    ws.on("message", (data: WebSocket.RawData) => {
+      // After join, GameServer's handler (added via addListeners) handles messages
+      // This handler should be removed by removeAllListeners in GameServer.addListeners
+      // But as a safety net, also skip if already joined
+      if (hasJoined) {
+        return;
+      }
+
       try {
         const message = JSON.parse(data.toString());
 
@@ -132,8 +142,7 @@ export async function startSingleServer() {
           if (!wasFound) {
             ws.close(1002, "Game not found");
           } else {
-            // Remove this handler - GameServer now handles messages
-            ws.removeListener("message", joinHandler);
+            hasJoined = true;
           }
           return;
         }
@@ -157,15 +166,12 @@ export async function startSingleServer() {
           ws.close(1002, "Game not found");
         } else {
           log.info(`Player ${username} (${clientID}) joined game ${gameID}`);
-          // Remove this handler - GameServer now handles messages
-          ws.removeListener("message", joinHandler);
+          hasJoined = true;
         }
       } catch (error) {
         log.error("Error handling game message:", error);
       }
-    };
-
-    ws.on("message", joinHandler);
+    });
 
     ws.on("error", (err) => {
       log.error("WebSocket error:", err);
