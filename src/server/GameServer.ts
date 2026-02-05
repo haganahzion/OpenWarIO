@@ -287,9 +287,14 @@ export class GameServer {
   }
 
   private addListeners(client: Client) {
+    this.log.info(`[GameServer] addListeners called for client ${client.clientID}`);
     client.ws.removeAllListeners("message");
     client.ws.on("message", async (message: string) => {
       try {
+        // Log raw message for debugging
+        const msgPreview = message.substring(0, 200);
+        this.log.debug(`[GameServer] Message from ${client.clientID}: ${msgPreview}`);
+
         const parsed = ClientMessageSchema.safeParse(JSON.parse(message));
         if (!parsed.success) {
           const error = z.prettifyError(parsed.error);
