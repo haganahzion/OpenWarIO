@@ -449,12 +449,18 @@ export class GameServer {
                 break;
               }
               default: {
-                // Don't process intents while game is paused
-                if (!this.isPaused) {
+                // Don't process intents while game is paused (except admin intents)
+                if (!this.isPaused || clientMsg.intent.type === "admin") {
                   if (clientMsg.intent.type === "admin") {
                     this.log.info(`[GameServer] Received admin intent: action=${clientMsg.intent.action}, amount=${clientMsg.intent.amount}, clientID=${clientMsg.intent.clientID}`);
+                    // Force a turn to process admin intent even while paused
+                    this.addIntent(clientMsg.intent);
+                    if (this.isPaused) {
+                      this.forceEndTurn();
+                    }
+                  } else {
+                    this.addIntent(clientMsg.intent);
                   }
-                  this.addIntent(clientMsg.intent);
                 }
                 break;
               }
@@ -644,6 +650,24 @@ export class GameServer {
 
     this.handleSynchronization();
     this.checkDisconnectedStatus();
+
+    const msg = JSON.stringify({
+      type: "turn",
+      turn: pastTurn,
+    } satisfies ServerTurnMessage);
+    this.activeClients.forEach((c) => {
+      c.ws.send(msg);
+    });
+  }
+
+  // Force a turn to happen even while paused (for admin intents)
+  private forceEndTurn() {
+    const pastTurn: Turn = {
+      turnNumber: this.turns.length,
+      intents: this.intents,
+    };
+    this.turns.push(pastTurn);
+    this.intents = [];
 
     const msg = JSON.stringify({
       type: "turn",
